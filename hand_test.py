@@ -8,8 +8,11 @@ from hand_tracking import hand_tracking
 from shapely.geometry import Polygon
 from math import sqrt
 from copy import deepcopy
+import rospy
+from std_msgs.msg import Int32MultiArray
 
 distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
+voice_flag = 0
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
@@ -106,6 +109,7 @@ class temp_tracking():
                 cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
         
         cv2.imshow('draw', draw_img1)
+        return [[x,y],[x+w/2,y+h/2]]
 
     def get_bound(self, img, object_mask, visualization=True):
         (_,object_contours, object_hierarchy)=cv2.findContours(object_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -126,10 +130,26 @@ class temp_tracking():
     def __del__(self):
         self.cap.release()
 
+def callback(msg):
+    print(msg.data)
+    global voice_flag
+    voice_flag = msg.data
+
 if __name__ == '__main__':
     temp = temp_tracking()
+    rospy.init_node('hand_tracking_node')
+    pub = rospy.Publisher('/target_position', Int32MultiArray, queue_size=1)
+    sub = rospy.Subscriber('/voice_command', Int32, callback)
     while True:
-        temp.update()
+        pos = temp.update()
+        if voice_flag == 1:
+            pos_N_cmd = [pos[0][0], pos[0][1], pos[1][0], pos[1][1], 1]
+            pub.publish(pos_N_cmd)
+        elif voice_flag == 2:
+            pos_N_cmd = [pos[0][0], pos[0][1], pos[1][0], pos[1][1], 2]
+            pub.publish(pos_N_cmd)
+        elif voice_flag == -1:
+            break
         k = cv2.waitKey(1) & 0xFF # large wait time to remove freezing
         if k == 113 or k == 27:
             break
