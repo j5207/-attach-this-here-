@@ -107,7 +107,7 @@ def listen_print_loop(responses):
                 return False
             elif re.search(r'\b(this)\b', transcript, re.I):
                 print(1)
-            elif re.search(r'\b(here)\b', transcript, re.I):
+            elif re.search(r'\b(here|shear|Kia|cheer)\b', transcript, re.I):
                 print(2)
                 return True
 
