@@ -125,8 +125,8 @@ class hand_tracking():
                     finger.append((hull[-i][0][0],hull[-i][0][1]))
                 j=j+1
 
-        finger = filter(lambda x: x[0] < cx, finger)
-        finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.6 * radius, finger)
+        #finger = filter(lambda x: x[0] < cx, finger)
+        finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.7 * radius, finger)
         dis_center_ls = []        
         for i in range(len(finger)):
             dist = np.sqrt((finger[i][0]- cx)**2 + (finger[i][1] - cy)**2)
@@ -187,7 +187,7 @@ class hand_tracking():
     
 def warp(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[101,160],[531,133],[0,480],[640,480]])
+    pts1 = np.float32([[268,76],[500,58],[272,252],[523,237]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))

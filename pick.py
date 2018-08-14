@@ -63,7 +63,7 @@ class pick_place():
 
     def single_exuete(self, position, mode):
         offset = 0.02
-        rospy.loginfo("let do this")
+        rospy.loginfo("let do a single exuete")
         rospy.sleep(5)
         position_copy = deepcopy(position)
         position_copy += [0.14]
@@ -108,7 +108,7 @@ class pick_place():
     def pickplace_cb(self, msg):
         #print(msg)
         print(msg.data)
-        rospy.loginfo("oh my god, that's a callback")
+        rospy.loginfo("oh my god, that's a callback! something gonna happen")
         pick_x, pick_y = coord_converter(msg.data[0], msg.data[1])
         place_x, place_y = coord_converter(msg.data[2], msg.data[3])
         print(pick_x, pick_y)

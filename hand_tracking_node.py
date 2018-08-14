@@ -67,6 +67,7 @@ class temp_tracking():
         self.cap = cv2.VideoCapture(0)
 
     def update(self):
+        self.surfacels = []
         self.boxls = []
         OK, origin = self.cap.read()
         x = None
@@ -75,6 +76,7 @@ class temp_tracking():
             warp = warp_img(rect)
             thresh = get_objectmask(warp)
             cv2.imshow('thresh', thresh)
+            self.image = warp.copy()
             draw_img1 = warp.copy()
             self.get_bound(draw_img1, thresh, visualization=True)
             
@@ -83,11 +85,15 @@ class temp_tracking():
                 length_ls = []
                 for x, y, w, h in self.boxls:
                     length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                x,y = min(length_ls, key=lambda x: x[0])[1]
-                ind = test_insdie((x, y), self.boxls)
-                x, y, w, h = self.boxls[ind]
-                cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
+                if len(length_ls) > 0:
+                    x,y = min(length_ls, key=lambda x: x[0])[1]
+                    ind = test_insdie((x, y), self.boxls)
+                    x, y, w, h = self.boxls[ind]
+                    cx, cy = self.surfacels[ind]
+                    cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
+                    cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                    cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
             
             if point2 and len(self.boxls) > 0:
                 boxls = deepcopy(self.boxls)
@@ -129,7 +135,20 @@ class temp_tracking():
         if len(self.boxls) > 0:
             boxls_arr = np.array(self.boxls)
             self.boxls = boxls_arr[boxls_arr[:, 0].argsort()].tolist()
-    
+        for x, y, w, h in self.boxls:
+            sub = self.image[y:y+h, x:x+w, :]
+            hsv = cv2.cvtColor(sub,cv2.COLOR_BGR2HSV)
+            top_mask = cv2.inRange(hsv, Top_low, Top_high)
+            (_,top_contours, object_hierarchy)=cv2.findContours(top_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+            max_area = 0
+            for i , contour in enumerate(top_contours):
+                area = cv2.contourArea(contour)
+                if area>max_area and object_hierarchy[0, i, 3] == -1:					
+                    M = cv2.moments(contour)
+                    cx = int(M['m10']/M['m00'])
+                    cy = int(M['m01']/M['m00'])
+                    max_area = area
+            self.surfacels.append((cx+x, cy+y))
 
     def __del__(self):
         self.cap.release()
