@@ -70,7 +70,7 @@ class IK_solver:
         if qsol is not None:
             self.goal.trajectory.points = [
                 JointTrajectoryPoint(positions=self.joints_pos_start.tolist(), velocities=[0]*6, time_from_start=rospy.Duration(0.0)),
-                JointTrajectoryPoint(positions=qsol.tolist(), velocities=[0]*6, time_from_start=rospy.Duration(1)),
+                JointTrajectoryPoint(positions=qsol.tolist(), velocities=[0]*6, time_from_start=rospy.Duration(10)),
             ]
             print('start: ' + str(self.joints_pos_start.tolist()))
             print('goal: ' + str(qsol.tolist()))
