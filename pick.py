@@ -110,16 +110,26 @@ class pick_place():
             self.ur5.go()
             self.ur5.stop()
             self.ur5.clear_pose_targets()
+            rospy.sleep(2)
 
     def pickplace_cb(self, msg):
         #print(msg)
         print(msg.data)
-        rospy.loginfo("oh my god, that's a callback! something gonna happen")
-        pick_x, pick_y = coord_converter(msg.data[0], msg.data[1])
-        place_x, place_y = coord_converter(msg.data[2], msg.data[3])
-        print(pick_x, pick_y)
-        print(place_x, place_y)
-        self.pair_exuete([pick_x, pick_y], [place_x, place_y])
+        if len(msg.data) == 4:
+            rospy.loginfo("hahaha, there is a single point action")
+            pick_x, pick_y = coord_converter(msg.data[0], msg.data[1])
+            place_x, place_y = coord_converter(msg.data[2], msg.data[3])
+            print(pick_x, pick_y)
+            print(place_x, place_y)
+            self.pair_exuete([pick_x, pick_y], [place_x, place_y])
+        if len(msg.data) == 8:
+            rospy.loginfo("hahaha, there is a double point action")
+            pick_x1, pick_y1 = coord_converter(msg.data[0], msg.data[1])
+            place_x1, place_y1 = coord_converter(msg.data[2], msg.data[3])
+            pick_x2, pick_y2 = coord_converter(msg.data[4], msg.data[5])
+            place_x2, place_y2 = coord_converter(msg.data[6], msg.data[7])
+            self.pair_exuete([pick_x1, pick_y1], [place_x1, place_y1])
+            self.pair_exuete([pick_x2, pick_y2], [place_x2, place_y2])
 
 
 # class exuete():
