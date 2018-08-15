@@ -59,17 +59,19 @@ class pick_place():
         self.gripper_ac = RobotiqActionClient('icl_phri_gripper/gripper_controller')
         self.gripper_ac.wait_for_server()
         self.gripper_ac.initiate()
+        self.gripper_ac.send_goal(0.08)
+        self.gripper_ac.wait_for_result()
 
         self.sub = rospy.Subscriber('/target_position', Int32MultiArray, self.pickplace_cb)
 
 
     def single_exuete(self, position, mode):
-        offset = 0
+        offset = 0.01
         rospy.loginfo("let do a single exuete")
         rospy.sleep(1)
         position_copy = deepcopy(position)
         position_copy += [0.14]
-        position_copy[1] = position_copy[1] - offset
+        position_copy[1] = position_copy[1] + offset
         pre_position = define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.2])
         post_position = define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.2])
         grasp_position = define_grasp(position_copy)
@@ -87,7 +89,7 @@ class pick_place():
         if mode == "pick":
             self.gripper_ac.send_goal(0)
         if mode == "place":
-            self.gripper_ac.send_goal(0.14)
+            self.gripper_ac.send_goal(0.08)
         self.gripper_ac.wait_for_result()
         rospy.loginfo("I got this")
         rospy.sleep(1)
@@ -122,12 +124,13 @@ class pick_place():
             print(pick_x, pick_y)
             print(place_x, place_y)
             self.pair_exuete([pick_x, pick_y], [place_x, place_y])
-        if len(msg.data) == 8:
+        if len(msg.data) == 6:
             rospy.loginfo("hahaha, there is a double point action")
+            leeway = 30
             pick_x1, pick_y1 = coord_converter(msg.data[0], msg.data[1])
-            place_x1, place_y1 = coord_converter(msg.data[2], msg.data[3])
-            pick_x2, pick_y2 = coord_converter(msg.data[4], msg.data[5])
-            place_x2, place_y2 = coord_converter(msg.data[6], msg.data[7])
+            place_x1, place_y1 = coord_converter(msg.data[4] - leeway, msg.data[5])
+            pick_x2, pick_y2 = coord_converter(msg.data[2], msg.data[3])
+            place_x2, place_y2 = coord_converter(msg.data[4] + leeway, msg.data[5])
             self.pair_exuete([pick_x1, pick_y1], [place_x1, place_y1])
             self.pair_exuete([pick_x2, pick_y2], [place_x2, place_y2])
 
