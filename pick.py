@@ -28,8 +28,10 @@ def define_grasp(position):
         return grasp_pose
 
 def coord_converter(x, y):
-    pts1 = np.array([[138, 133], [281, 133], [429, 130], [134, 271], [280, 251], [417, 260], [137, 391], [274, 381]])
-    pts2 = np.array([[0.391, -0.319], [0.557, -0.337], [0.719, -0.355], [0.386, -0.496], [0.557, -0.489], [0.707, -0.470], [0.379, -0.640], [0.541, -0.641]])
+    # pts1 = np.array([[138, 133], [281, 133], [429, 130], [134, 271], [280, 251], [417, 260], [137, 391], [274, 381]])
+    # pts2 = np.array([[0.391, -0.319], [0.557, -0.337], [0.719, -0.355], [0.386, -0.496], [0.557, -0.489], [0.707, -0.470], [0.379, -0.640], [0.541, -0.641]])
+    pts1 = np.array([[(118, 84), (131, 239), (134, 369), (295, 354), (292, 85), (304, 227), (444, 237), (465, 76)]])
+    pts2 = np.array([[(0.369, -0.309), (0.399, -0.497), (0.376, -0.646), (0.589, -0.643), (0.568, -0.310), (0.589, -0.495),(0.759, -0.495), (0.792, -0.301)]])
     M, mask = cv2.findHomography(pts1, pts2, cv2.RANSAC,5.0)
     solusion = np.matmul(M,np.array([x, y, 1]))
     solusion = solusion/solusion[2]
@@ -49,8 +51,8 @@ class pick_place():
         print(self.robot.get_planning_frame())
         print(self.ur5.get_end_effector_link())
         print("======================================================")
-        self.ur5.set_max_velocity_scaling_factor(0.1)
-        self.ur5.set_max_acceleration_scaling_factor(0.1)
+        self.ur5.set_max_velocity_scaling_factor(0.3)
+        self.ur5.set_max_acceleration_scaling_factor(0.3)
         self.ur5.set_end_effector_link("fts_toolside")
         self.ur5.set_planning_time(60.0)
         #self.ur5.set_planner_id("RRTkConfigDefault")
@@ -62,9 +64,9 @@ class pick_place():
 
 
     def single_exuete(self, position, mode):
-        offset = 0.02
+        offset = 0
         rospy.loginfo("let do a single exuete")
-        rospy.sleep(5)
+        rospy.sleep(1)
         position_copy = deepcopy(position)
         position_copy += [0.14]
         position_copy[1] = position_copy[1] - offset
@@ -72,11 +74,13 @@ class pick_place():
         post_position = define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.2])
         grasp_position = define_grasp(position_copy)
         self.ur5.set_pose_target(pre_position)
+        rospy.loginfo("let's go to pre position")
         self.ur5.go()
         self.ur5.stop()
         self.ur5.clear_pose_targets()
-        rospy.sleep(5)
+        rospy.sleep(1)
         self.ur5.set_pose_target(grasp_position)
+        rospy.loginfo("let's do this")
         self.ur5.go()
         self.ur5.stop()
         self.ur5.clear_pose_targets()
@@ -85,19 +89,21 @@ class pick_place():
         if mode == "place":
             self.gripper_ac.send_goal(0.14)
         self.gripper_ac.wait_for_result()
-        rospy.sleep(5)
+        rospy.loginfo("I got this")
+        rospy.sleep(1)
         self.ur5.set_pose_target(post_position)
+        rospy.loginfo("move out")
         self.ur5.go()
         self.ur5.stop()
         self.ur5.clear_pose_targets()
-        rospy.sleep(5)
+        rospy.sleep(1)
 
     def pair_exuete(self, pick_position, place_position):
         rospy.loginfo("here we go pair")
         if pick_position and place_position:
             self.single_exuete(pick_position, "pick")
             self.single_exuete(place_position, "place")
-            rospy.sleep(5)
+            rospy.sleep(1)
             rospy.loginfo("let's go and get some rest")
             rest_position = define_grasp([0.486, -0.152, 0.342])
             self.ur5.set_pose_target(rest_position)
@@ -138,11 +144,7 @@ if __name__=='__main__':
     rospy.init_node('pick_place', anonymous=True)
     task = pick_place()
     rospy.spin()
-    # sub = rospy.Subscriber('/target_position', Int32MultiArray, pickplace_cb)
-    # while True:
-    #     #print("g")
-    #     exuete(task, sub)
-    #     if not rospy.is_shutdown:
-    #         break
-    # task.pair_exuete([0.96, -0.7], [0.558, -0.35])
+    # pick_x, pick_y = coord_converter(108, 150)
+    # place_x, place_y = coord_converter(177, 193)
+    # task.pair_exuete([pick_x, pick_y], [place_x, place_y])
  

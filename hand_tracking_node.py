@@ -79,7 +79,8 @@ class temp_tracking():
             self.image = warp.copy()
             draw_img1 = warp.copy()
             self.get_bound(draw_img1, thresh, visualization=True)
-            
+            cx, cy = None, None
+            #print(self.surfacels)
             (point, angle), (point2, angle2), center = hand_tracking(warp_img(origin), cache(10), cache(10)).get_result()
             if point and len(self.boxls) > 0:
                 length_ls = []
@@ -118,15 +119,17 @@ class temp_tracking():
                     cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
         
         cv2.imshow('draw', draw_img1)
-        if x and point:
-            return [[point[0],point[1]],[x+w/2,y+h/2]]
+        if cx and point:
+            return [[point[0],point[1]],[cx,cy]]
+        # if x and point:
+        #     return [[point[0],point[1]],[x+w/2,y+h/2]]
 
     def get_bound(self, img, object_mask, visualization=True):
         (_,object_contours, object_hierarchy)=cv2.findContours(object_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
         if len(object_contours) > 0:
             for i , contour in enumerate(object_contours):
                 area = cv2.contourArea(contour)
-                if area>100 and area < 100000 and object_hierarchy[0, i, 3] == -1:					
+                if area>200 and area < 2000 and object_hierarchy[0, i, 3] == -1:					
                     M = cv2.moments(contour)
                     cx = int(M['m10']/M['m00'])
                     cy = int(M['m01']/M['m00'])
