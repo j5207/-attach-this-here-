@@ -48,7 +48,7 @@ class hand_tracking():
         self.center = None
         self.angle = None
         self.twoangle = None
-        max_area = 500
+        max_area = 1000
         # try:	
         for i in range(len(contours)):
             cnt=contours[i]
@@ -69,7 +69,7 @@ class hand_tracking():
                 # #Find convex defects
                 # hull2 = cv2.convexHull(cnts,returnPoints = False)
                 # defects = cv2.convexityDefects(cnts,hull2)
-                cv2.drawContours(frame,[approx],-1,(0, 255, 0),1)
+                cv2.drawContours(frame,[approx],-1,(0, 0, 255),1)
                 self.hand_cnt.append([approx])
         # except Exception as e:
         #     print(e)
@@ -77,6 +77,7 @@ class hand_tracking():
         cv2.imshow('hand_tracking',frame) 
     def get_result(self):
         #self.filter()
+        #print((self.only_point, self.angle), (self.rl_point, self.twoangle), self.center)
         return (self.only_point, self.angle), (self.rl_point, self.twoangle), self.center
     
     def filter(self):
@@ -125,8 +126,8 @@ class hand_tracking():
                     finger.append((hull[-i][0][0],hull[-i][0][1]))
                 j=j+1
 
-        finger = filter(lambda x: x[0] < cx, finger)
-        finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.6 * radius, finger)
+        #finger = filter(lambda x: x[0] < cx, finger)
+        finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.8 * radius, finger)
         dis_center_ls = []        
         for i in range(len(finger)):
             dist = np.sqrt((finger[i][0]- cx)**2 + (finger[i][1] - cy)**2)
@@ -184,10 +185,9 @@ class hand_tracking():
             cv2.circle(frame_in,finger[k],10,255,2)
             cv2.line(frame_in,finger[k],(cx,cy),255,2)
         return frame_in,finger
-    
 def warp(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[101,160],[531,133],[0,480],[640,480]])
+    pts1 = np.float32([[268,76],[500,58],[272,252],[523,237]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
@@ -197,13 +197,15 @@ def warp(img):
 
 
 
+
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
     while True:
         OK, origin = cap.read()
         ob = hand_tracking(warp(origin), cache(10), cache(10))
-        if ob.angle is not None:
-            print(ob.angle)
+        ob.get_result()
+        # if ob.angle is not None:
+        #     print(ob.angle)
         k = cv2.waitKey(1) & 0xFF # large wait time to remove freezing
         if k == 113 or k == 27:
             break
