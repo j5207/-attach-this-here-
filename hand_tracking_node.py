@@ -74,6 +74,7 @@ class temp_tracking():
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
         self.hand_mask = None
+        self.trigger = False
 
     def update(self):
         '''
@@ -113,10 +114,13 @@ class temp_tracking():
                         for cx, cy in self.surfacels:
                             if mask[cy, cx] == 255:
                                 temp_result.append((cx, cy))
+                                cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
                         '''
                         multihand
                         '''
-                        return [temp_result, tips[0], 4]
+                        self.hand_mask = None
+                        
+                        return [temp_result, tips[0], center,3]
                         
                     else:
                         point = tips[0]
@@ -135,7 +139,7 @@ class temp_tracking():
                             '''
                             flag is 1
                             '''
-                            return [[point[0],point[1]],[cx,cy], 1]
+                            return [[point[0],point[1]],[cx,cy], center,1]
             #  '''
             # one hand and two finger, flag == 2
             # '''
@@ -165,14 +169,15 @@ class temp_tracking():
                         '''
                         flag is 2
                         '''
-                        return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], 2]
+                        return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], center,2]
 
                 # '''
-                # one hand and multi finger, flag == 4
+                # one hand and multi finger, flag == 3
                 # '''
                 if num_tips > 4 and len(self.boxls) > 0:
-                    self.hand_mask = get_handmask(deepcopy(self.image))
-                    return [4]
+                    if self.trigger:
+                        self.hand_mask = get_handmask(deepcopy(self.image))
+                        return [center,3]
 
                     
 
@@ -193,30 +198,6 @@ class temp_tracking():
                 rcenter = result[1][0]
                 rtips = result[1][1]
                 rnum_tips = len(rtips)
-            # '''
-            # one hand is one finger tip and another one not pointing, ONLY PICK
-            # '''
-                if set([lnum_tips, rnum_tips]) == set([0, 1]) and len(self.boxls) > 0:
-                    sub_result = filter(lambda x: len(x[1]) == 1, result)
-                    center = sub_result[0]
-                    tips = sub_result[1]
-                    point = tips[0]
-                    length_ls = []
-                    for x, y, w, h in self.boxls:
-                        length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                    length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
-                    if len(length_ls) > 0:
-                        x,y = min(length_ls, key=lambda x: x[0])[1]
-                        ind = test_insdie((x, y), self.boxls)
-                        x, y, w, h = self.boxls[ind]
-                        cx, cy = self.surfacels[ind]
-                        cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                        cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
-                        cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-                        '''
-                        flag is 1
-                        '''
-                        return [[point[0],point[1]],[cx,cy], 1]
                 # '''
                 # two hand is both one finger pointing, ONLY PLACE
                 # '''
@@ -242,9 +223,9 @@ class temp_tracking():
                         cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
                         cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                         '''
-                        flag is 3
+                        flag is 4
                         '''
-                        return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [rx, ry], [lx, ly], 3]
+                        return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [rx, ry], [lx, ly], [rcenter, lcenter], 4]
 
                     
                     
@@ -306,23 +287,41 @@ if __name__ == '__main__':
     sub = rospy.Subscriber('/voice_command', Int32, callback)
     ready_for_place = False
     pos_N_cmd = []
+    pick_handcenter = None
     while True:
         pos = temp.update()
         if pos:
+            #=================PICK==============#
             if voice_flag == 1 and not ready_for_place:
-                if len(pos) == 2:
+                if pos[-1] == 1:
                     pos_N_cmd.append(int(pos[1][0]))
                     pos_N_cmd.append(int(pos[1][1]))
-                elif len(pos) == 4:
+                elif pos[-1] == 2:
                     pos_N_cmd.append(int(pos[2][0]))
                     pos_N_cmd.append(int(pos[2][1]))
                     pos_N_cmd.append(int(pos[3][0]))
                     pos_N_cmd.append(int(pos[3][1]))
-                print(pos_N_cmd)
+                elif pos[-1] == 3:
+                    temp.trigger = True
+                pick_handcenter = pos[-2]
                 ready_for_place = True
+            #==================PLACE====================#
             elif voice_flag == 2 and ready_for_place:
-                pos_N_cmd.append(int(pos[0][0]))
-                pos_N_cmd.append(int(pos[0][1]))
+                if pos[-1] == 1:
+                    pos_N_cmd.append(int(pos[0][0]))
+                    pos_N_cmd.append(int(pos[0][1]))
+                elif pos[-1] == 3:
+                    for cx, cy in pos[0]:
+                        pos_N_cmd.append(cx)
+                        pos_N_cmd.append(cy)
+                    pos_N_cmd.append(pos[1][0])
+                    pos_N_cmd.append(pos[1][1])
+                    temp.trigger = False
+                elif pos[-1] == 4:
+                    ind = pos[-2].index(max(pos[-2], lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
+                    pos_N_cmd.append(int(pos[ind][0]))
+                    pos_N_cmd.append(int(pos[ind][1]))
+                pick_handcenter = None
                 print(pos_N_cmd)
                 pub.publish(Int32MultiArray(data=pos_N_cmd))
                 ready_for_place = False
