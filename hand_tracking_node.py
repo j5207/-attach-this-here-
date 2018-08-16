@@ -174,7 +174,9 @@ class temp_tracking():
                         flag is 1
                         '''
                         return [[point[0],point[1]],[cx,cy], 1]
-
+                # '''
+                # two hand is both one finger pointing, ONLY PLACE
+                # '''
                 if set([lnum_tips, rnum_tips]) == set([1,1]) and len(self.boxls) > 0:
                     boxls = deepcopy(self.boxls)
                     length_lsr = []
@@ -196,7 +198,10 @@ class temp_tracking():
                         x, y, w, h = boxls[lind]
                         cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
                         cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-                        return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], 2]
+                        '''
+                        flag is 3
+                        '''
+                        return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [rx, ry], [lx, ly], 3]
 
                     
                     
