@@ -6,6 +6,7 @@ from utils import cache
 from constant import Hand_low, Hand_high
 from utils import cache
 import math
+from hand_tracking_node import get_handmask, get_objectmask
 
 Finger_distanct = 20
 
@@ -111,10 +112,15 @@ if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
     while True:
         OK, origin = cap.read()
-        ob = hand_tracking(warp(origin))
-        ob.get_result()
-        # if ob.angle is not None:
-        #     print(ob.angle)
+        frame = warp(origin)
+        hand = get_handmask(frame)
+        objectmask = get_objectmask(frame)
+        cv2.imshow('dd', hand)
+        cv2.imshow('ff', objectmask)
+        # ob = hand_tracking(warp(origin))
+        # ob.get_result()
+        # # if ob.angle is not None:
+        # #     print(ob.angle)
         k = cv2.waitKey(1) & 0xFF # large wait time to remove freezing
         if k == 113 or k == 27:
             break

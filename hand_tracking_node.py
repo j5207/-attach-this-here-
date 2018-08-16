@@ -58,13 +58,22 @@ def get_objectmask(img):
     thresh[477:, 50:610] = 0
     return thresh
 
+def get_handmask(frame):
+    blur = cv2.blur(frame,(3,3))
+    hsv = cv2.cvtColor(blur,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, Hand_low, Hand_high)
+    kernel_square = np.ones((11,11),np.uint8)
+    mask = cv2.dilate(mask,kernel_square,iterations = 3)
+    return mask
+
 def get_k_dis((x1, y1), (x2, y2), (x, y)):
-        coord = ((x, y), (x1, y1), (x2, y2))
-        return Polygon(coord).area / distant((x1, y1), (x2, y2))
+    coord = ((x, y), (x1, y1), (x2, y2))
+    return Polygon(coord).area / distant((x1, y1), (x2, y2))
 
 class temp_tracking():
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
+        self.hand_mask = None
 
     def update(self):
         '''
@@ -97,23 +106,36 @@ class temp_tracking():
             # one hand and one finger, flag == 1
             # '''
                 if num_tips == 1 and len(self.boxls) > 0:
-                    point = tips[0]
-                    length_ls = []
-                    for x, y, w, h in self.boxls:
-                        length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                    length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
-                    if len(length_ls) > 0:
-                        x,y = min(length_ls, key=lambda x: x[0])[1]
-                        ind = test_insdie((x, y), self.boxls)
-                        x, y, w, h = self.boxls[ind]
-                        cx, cy = self.surfacels[ind]
-                        cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                        cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
-                        cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                    if self.hand_mask is not None:
+                        object_mask = get_objectmask(deepcopy(self.image))
+                        mask = cv2.bitwise_and(self.hand_mask, object_mask)
+                        temp_result = []
+                        for cx, cy in self.surfacels:
+                            if mask[cy, cx] == 255:
+                                temp_result.append((cx, cy))
                         '''
-                        flag is 1
+                        multihand
                         '''
-                        return [[point[0],point[1]],[cx,cy], 1]
+                        return [temp_result, tips[0], 4]
+                        
+                    else:
+                        point = tips[0]
+                        length_ls = []
+                        for x, y, w, h in self.boxls:
+                            length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
+                        length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
+                        if len(length_ls) > 0:
+                            x,y = min(length_ls, key=lambda x: x[0])[1]
+                            ind = test_insdie((x, y), self.boxls)
+                            x, y, w, h = self.boxls[ind]
+                            cx, cy = self.surfacels[ind]
+                            cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
+                            cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                            cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                            '''
+                            flag is 1
+                            '''
+                            return [[point[0],point[1]],[cx,cy], 1]
             #  '''
             # one hand and two finger, flag == 2
             # '''
@@ -126,6 +148,7 @@ class temp_tracking():
                         length_lsr.append((get_k_dis((rpoint[0], rpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
                     rx,ry = min(length_lsr, key=lambda x: x[0])[1]
                     rind = test_insdie((rx, ry), self.boxls)
+                    rx, ry = self.surfacels[rind]
                     x, y, w, h = self.boxls[rind]
                     del boxls[rind]
                     cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
@@ -135,10 +158,30 @@ class temp_tracking():
                             length_lsl.append((get_k_dis((lpoint[0], lpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
                         lx,ly = min(length_lsl, key=lambda x: x[0])[1]
                         lind = test_insdie((lx, ly), boxls)
+                        lx, ly = self.surfacels[lind]
                         x, y, w, h = boxls[lind]
                         cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
                         cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                        '''
+                        flag is 2
+                        '''
                         return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], 2]
+
+                # '''
+                # one hand and multi finger, flag == 4
+                # '''
+                if num_tips > 4 and len(self.boxls) > 0:
+                    self.hand_mask = get_handmask(deepcopy(self.image))
+                    return [4]
+
+                    
+
+
+
+
+
+
+
             '''
             two hand in the view
             '''
@@ -244,6 +287,8 @@ class temp_tracking():
                     cy = int(M['m01']/M['m00'])
                     max_area = area
             self.surfacels.append((cx+x, cy+y))
+
+    
 
     def __del__(self):
         self.cap.release()
