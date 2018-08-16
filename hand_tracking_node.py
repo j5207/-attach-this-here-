@@ -67,6 +67,9 @@ class temp_tracking():
         self.cap = cv2.VideoCapture(0)
 
     def update(self):
+        '''
+        gesture flag for distinguish different scenario
+        '''
         self.surfacels = []
         self.boxls = []
         OK, origin = self.cap.read()
@@ -82,49 +85,84 @@ class temp_tracking():
             cx, cy = None, None
             lx, rx = None, None
             #print(self.surfacels)
-            (point, angle), (point2, angle2), center = hand_tracking(warp_img(origin), cache(10), cache(10)).get_result()
-            if point and len(self.boxls) > 0:
-                length_ls = []
-                for x, y, w, h in self.boxls:
-                    length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
-                if len(length_ls) > 0:
-                    x,y = min(length_ls, key=lambda x: x[0])[1]
-                    ind = test_insdie((x, y), self.boxls)
-                    x, y, w, h = self.boxls[ind]
-                    cx, cy = self.surfacels[ind]
+            result = hand_tracking(warp_img(origin), cache(10), cache(10)).get_result()
+            num_hand_view = len(result)
+            '''
+            one hand in the view
+            '''
+            if num_hand_view == 1:
+                center = result[0][0]
+                tips = result[0][1]
+                num_tips = len(tips)
+            '''
+            one hand and one finger, flag == 1
+            '''
+                if num_tips == 1 and len(self.boxls) > 0:
+                    point = tips[0]
+                    length_ls = []
+                    for x, y, w, h in self.boxls:
+                        length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
+                    length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
+                    if len(length_ls) > 0:
+                        x,y = min(length_ls, key=lambda x: x[0])[1]
+                        ind = test_insdie((x, y), self.boxls)
+                        x, y, w, h = self.boxls[ind]
+                        cx, cy = self.surfacels[ind]
+                        cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
+                        cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                        cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                        '''
+                        flag is 1
+                        '''
+                        return [[point[0],point[1]],[cx,cy], 1]
+             '''
+            one hand and two finger, flag == 2
+            '''
+                if num_tips == 2 and len(self.boxls) > 0:
+                    boxls = deepcopy(self.boxls)
+                    length_lsr = []
+                    length_lsl = []
+                    rpoint, lpoint = tips
+                    for x, y, w, h in self.boxls:
+                        length_lsr.append((get_k_dis((rpoint[0], rpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
+                    rx,ry = min(length_lsr, key=lambda x: x[0])[1]
+                    rind = test_insdie((rx, ry), self.boxls)
+                    x, y, w, h = self.boxls[rind]
+                    del boxls[rind]
                     cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                    cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
-                    cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-            
-            if point2 and len(self.boxls) > 0:
-                boxls = deepcopy(self.boxls)
-                length_lsr = []
-                length_lsl = []
-                rpoint, lpoint = point2
-                for x, y, w, h in self.boxls:
-                    length_lsr.append((get_k_dis((rpoint[0], rpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                rx,ry = min(length_lsr, key=lambda x: x[0])[1]
-                rind = test_insdie((rx, ry), self.boxls)
-                x, y, w, h = self.boxls[rind]
-                del boxls[rind]
-                cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                cv2.putText(draw_img1,"pointed_right",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-                if len(boxls) > 0:
-                    for x, y, w, h in boxls:
-                        length_lsl.append((get_k_dis((lpoint[0], lpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                    lx,ly = min(length_lsl, key=lambda x: x[0])[1]
-                    lind = test_insdie((lx, ly), boxls)
-                    x, y, w, h = boxls[lind]
-                    cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                    cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-        
+                    cv2.putText(draw_img1,"pointed_right",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                    if len(boxls) > 0:
+                        for x, y, w, h in boxls:
+                            length_lsl.append((get_k_dis((lpoint[0], lpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
+                        lx,ly = min(length_lsl, key=lambda x: x[0])[1]
+                        lind = test_insdie((lx, ly), boxls)
+                        x, y, w, h = boxls[lind]
+                        cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
+                        cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                        return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], 2]
+            '''
+            two hand in the view
+            '''
+            if num_hand_view == 2:
+                lcenter = result[0][0]
+                ltips = result[0][1]
+                lnum_tips = len(ltips)
+
+                rcenter = result[1][0]
+                rtips = result[1][1]
+                rnum_tips = len(rtips)
+            '''
+            two on one pointing gesture, flag = 3
+            '''
+                if (lnum_tips == 2 and rnum_tips == 1) or (lnum_tips == 1 and rnum_tips == 2):
+
+                
         cv2.imshow('draw', draw_img1)
-        if cx and point:
-            return [[point[0],point[1]],[cx,cy]]
-        if point2:
-            if lx and rx:
-                return [[point2[0][0], point2[0][1]], [point2[1][0], point2[1][1]], [rx, ry], [lx, ly]]
+        # if cx and point:
+        #     return [[point[0],point[1]],[cx,cy]]
+        # if point2:
+        #     if lx and rx:
+        #         return [[point2[0][0], point2[0][1]], [point2[1][0], point2[1][1]], [rx, ry], [lx, ly]]
         # if x and point:
         #     return [[point[0],point[1]],[x+w/2,y+h/2]]
 
