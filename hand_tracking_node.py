@@ -74,7 +74,8 @@ class temp_tracking():
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
         self.hand_mask = None
-        self.trigger = False
+        self.trigger = True
+        self.after_trigger = False
 
     def update(self):
         '''
@@ -107,18 +108,24 @@ class temp_tracking():
             # one hand and one finger, flag == 1
             # '''
                 if num_tips == 1 and len(self.boxls) > 0:
-                    if self.hand_mask is not None:
+                    # print(self.hand_mask)
+                    # print(self.after_trigger)
+                    if self.hand_mask is not None and self.after_trigger:
                         object_mask = get_objectmask(deepcopy(self.image))
                         mask = cv2.bitwise_and(self.hand_mask, object_mask)
                         temp_result = []
                         for cx, cy in self.surfacels:
                             if mask[cy, cx] == 255:
                                 temp_result.append((cx, cy))
-                                cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                                #cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
                         '''
                         multihand
                         '''
                         self.draw = draw_img1
+                        print("getting bitwise and")
+                        print([temp_result, tips[0], center,3])
+                        self.hand_mask = None
+                        self.after_trigger = False
                         return [temp_result, tips[0], center,3]
                         
                     else:
@@ -135,6 +142,7 @@ class temp_tracking():
                             cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
                             cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
                             cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                            
                             '''
                             flag is 1
                             '''
@@ -170,16 +178,17 @@ class temp_tracking():
                         flag is 2
                         '''
                         self.draw = draw_img1
+                        
                         return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], center,2]
 
                 # '''
                 # one hand and multi finger, flag == 3
                 # '''
-                if num_tips > 4 and len(self.boxls) > 0:
+                if num_tips > 2:
                     if self.trigger:
                         self.hand_mask = get_handmask(deepcopy(self.image))
                         self.draw = draw_img1
-                        self.trigger = False
+                        #print('there you go!!!!!!!!!!!!')
                         return [center,3]
 
                     
@@ -229,12 +238,14 @@ class temp_tracking():
                         '''
                         flag is 4
                         '''
+                        
                         return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [rx, ry], [lx, ly], [rcenter, lcenter], 4]
 
                 if max(set([lnum_tips, rnum_tips])) > 1 and min(set([lnum_tips, rnum_tips])) == 1:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0]
                     tips = sub_result[1]
+                    #rospy.loginfo("multifinger two hand")
                     return [[tips[0][0], tips[0][1]], 1]
 
         self.draw = draw_img1       
@@ -291,53 +302,67 @@ if __name__ == '__main__':
     temp = temp_tracking()
     rospy.init_node('hand_tracking_node')
     pub = rospy.Publisher('/target_position', Int32MultiArray, queue_size=20)
-    sub = rospy.Subscriber('/voice_command', Int32, callback)
+    sub = rospy.Subscriber('/voice_command1', Int32, callback)
     ready_for_place = False
     pos_N_cmd = []
     pick_handcenter = None
     while True:
-        pos = temp.update()
-        cv2.imshow('node',temp.draw)
-        if pos:
+        
+        
+        #if pos:
             #=================PICK==============#
-            if voice_flag == 1 and not ready_for_place:
-                temp.trigger = True
+        if voice_flag == 1 and not ready_for_place:
+            pos = temp.update()
+            if pos:
                 if pos[-1] == 1:
+                    rospy.loginfo("one finger one hand")
                     pos_N_cmd.append(int(pos[1][0]))
                     pos_N_cmd.append(int(pos[1][1]))
                 elif pos[-1] == 2:
+                    rospy.loginfo("one hand two finger")
                     pos_N_cmd.append(int(pos[2][0]))
                     pos_N_cmd.append(int(pos[2][1]))
                     pos_N_cmd.append(int(pos[3][0]))
                     pos_N_cmd.append(int(pos[3][1]))
                 elif pos[-1] == 3:
-                    rospy.loginfo('get hand mask')
+                    rospy.loginfo("multifinger one hand previous")
+                    rospy.loginfo('not getting new hand mask')
+                    temp.trigger = False
                 pick_handcenter = pos[-2]
                 ready_for_place = True
             #==================PLACE====================#
-            elif voice_flag == 2 and ready_for_place:
+        elif voice_flag == 2 and ready_for_place:
+            temp.after_trigger = True
+            pos = temp.update()
+            if pos:
                 if pos[-1] == 1:
+                    rospy.loginfo("one finger one hand")
                     pos_N_cmd.append(int(pos[0][0]))
                     pos_N_cmd.append(int(pos[0][1]))
                 elif pos[-1] == 3:
+                    rospy.loginfo("multifinger one hand")
                     for cx, cy in pos[0]:
                         pos_N_cmd.append(cx)
                         pos_N_cmd.append(cy)
                     pos_N_cmd.append(pos[1][0])
                     pos_N_cmd.append(pos[1][1])
                     temp.hand_mask = None
-                    # temp.trigger = False
+                    temp.trigger = True
                 elif pos[-1] == 4:
+                    rospy.loginfo("two hand one point")
                     ind = pos[-2].index(max(pos[-2], lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
                     pos_N_cmd.append(int(pos[ind][0]))
                     pos_N_cmd.append(int(pos[ind][1]))
                 pick_handcenter = None
-                print(pos_N_cmd)
+                print(pos_N_cmd, "this is published msg")
                 pub.publish(Int32MultiArray(data=pos_N_cmd))
                 ready_for_place = False
                 pos_N_cmd = []
-            elif voice_flag == -1:
-                break
+        elif voice_flag == -1:
+            break
+        else:
+            pos = temp.update()
+        cv2.imshow('node',temp.draw)
         k = cv2.waitKey(1) & 0xFF # large wait time to remove freezing
         if k == 113 or k == 27:
             break
