@@ -74,7 +74,7 @@ class temp_tracking():
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
         self.hand_mask = None
-        self.trigger = True
+        self.trigger = False
         self.after_trigger = False
 
     def update(self):
@@ -188,6 +188,7 @@ class temp_tracking():
                     if self.trigger:
                         self.hand_mask = get_handmask(deepcopy(self.image))
                         self.draw = draw_img1
+                        self.trigger = False
                         #print('there you go!!!!!!!!!!!!')
                         return [center,3]
 
@@ -214,37 +215,39 @@ class temp_tracking():
                 # two hand is both one finger pointing, ONLY PLACE
                 # '''
                 if set([lnum_tips, rnum_tips]) == set([1,1]) and len(self.boxls) > 0:
-                    boxls = deepcopy(self.boxls)
-                    length_lsr = []
-                    length_lsl = []
-                    rpoint, lpoint = rtips[0], ltips[0]
-                    for x, y, w, h in self.boxls:
-                        length_lsr.append((get_k_dis((rpoint[0], rpoint[1]), (rcenter[0], rcenter[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                    rx,ry = min(length_lsr, key=lambda x: x[0])[1]
-                    rind = test_insdie((rx, ry), self.boxls)
-                    x, y, w, h = self.boxls[rind]
-                    del boxls[rind]
-                    cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                    cv2.putText(draw_img1,"pointed_right",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-                    if len(boxls) > 0:
-                        for x, y, w, h in boxls:
-                            length_lsl.append((get_k_dis((lpoint[0], lpoint[1]), (lcenter[0], lcenter[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                        lx,ly = min(length_lsl, key=lambda x: x[0])[1]
-                        lind = test_insdie((lx, ly), boxls)
-                        x, y, w, h = boxls[lind]
-                        cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                        cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-                        self.draw = draw_img1
-                        '''
-                        flag is 4
-                        '''
-                        
-                        return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [rx, ry], [lx, ly], [rcenter, lcenter], 4]
+                    # boxls = deepcopy(self.boxls)
+                    # length_lsr = []
+                    # length_lsl = []
+                    # rpoint, lpoint = rtips[0], ltips[0]
+                    # for x, y, w, h in self.boxls:
+                    #     length_lsr.append((get_k_dis((rpoint[0], rpoint[1]), (rcenter[0], rcenter[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
+                    # rx,ry = min(length_lsr, key=lambda x: x[0])[1]
+                    # rind = test_insdie((rx, ry), self.boxls)
+                    # x, y, w, h = self.boxls[rind]
+                    # del boxls[rind]
+                    # cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
+                    # cv2.putText(draw_img1,"pointed_right",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                    # if len(boxls) > 0:
+                    #     for x, y, w, h in boxls:
+                    #         length_lsl.append((get_k_dis((lpoint[0], lpoint[1]), (lcenter[0], lcenter[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
+                    #     lx,ly = min(length_lsl, key=lambda x: x[0])[1]
+                    #     lind = test_insdie((lx, ly), boxls)
+                    #     x, y, w, h = boxls[lind]
+                    #     cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
+                    #     cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                    self.draw = draw_img1
+                    
+                    '''
+                    flag is 4
+                    '''
+                    #print("fwklangoasngosangio")
+                    return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
+                        # return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [rx, ry], [lx, ly], [rcenter, lcenter], 4]
 
                 if max(set([lnum_tips, rnum_tips])) > 1 and min(set([lnum_tips, rnum_tips])) == 1:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
-                    center = sub_result[0]
-                    tips = sub_result[1]
+                    center = sub_result[0][0]
+                    tips = sub_result[0][1]
                     #rospy.loginfo("multifinger two hand")
                     return [[tips[0][0], tips[0][1]], 1]
 
@@ -312,6 +315,7 @@ if __name__ == '__main__':
         #if pos:
             #=================PICK==============#
         if voice_flag == 1 and not ready_for_place:
+            temp.trigger = True
             pos = temp.update()
             if pos:
                 if pos[-1] == 1:
@@ -327,8 +331,8 @@ if __name__ == '__main__':
                 elif pos[-1] == 3:
                     rospy.loginfo("multifinger one hand previous")
                     rospy.loginfo('not getting new hand mask')
-                    temp.trigger = False
                 pick_handcenter = pos[-2]
+                temp.trigger = False
                 ready_for_place = True
             #==================PLACE====================#
         elif voice_flag == 2 and ready_for_place:
@@ -355,6 +359,7 @@ if __name__ == '__main__':
                     pos_N_cmd.append(int(pos[ind][1]))
                 pick_handcenter = None
                 print(pos_N_cmd, "this is published msg")
+                temp.after_trigger = False
                 pub.publish(Int32MultiArray(data=pos_N_cmd))
                 ready_for_place = False
                 pos_N_cmd = []
