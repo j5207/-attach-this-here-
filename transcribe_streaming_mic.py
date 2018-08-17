@@ -27,7 +27,7 @@ from __future__ import division
 import re
 import sys
 import os
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="/home/lize/Downloads/Speech to Text-key.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="/home/intuitivecompting/Downloads/Speech to Text-888f6a05acbb.json"
 from google.cloud import speech
 from google.cloud.speech import enums
 from google.cloud.speech import types

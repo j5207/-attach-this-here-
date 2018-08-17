@@ -118,8 +118,7 @@ class temp_tracking():
                         '''
                         multihand
                         '''
-                        self.hand_mask = None
-                        
+                        self.draw = draw_img1
                         return [temp_result, tips[0], center,3]
                         
                     else:
@@ -139,6 +138,7 @@ class temp_tracking():
                             '''
                             flag is 1
                             '''
+                            self.draw = draw_img1
                             return [[point[0],point[1]],[cx,cy], center,1]
             #  '''
             # one hand and two finger, flag == 2
@@ -169,6 +169,7 @@ class temp_tracking():
                         '''
                         flag is 2
                         '''
+                        self.draw = draw_img1
                         return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], center,2]
 
                 # '''
@@ -177,6 +178,8 @@ class temp_tracking():
                 if num_tips > 4 and len(self.boxls) > 0:
                     if self.trigger:
                         self.hand_mask = get_handmask(deepcopy(self.image))
+                        self.draw = draw_img1
+                        self.trigger = False
                         return [center,3]
 
                     
@@ -222,16 +225,20 @@ class temp_tracking():
                         x, y, w, h = boxls[lind]
                         cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
                         cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                        self.draw = draw_img1
                         '''
                         flag is 4
                         '''
                         return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [rx, ry], [lx, ly], [rcenter, lcenter], 4]
 
-                    
-                    
+                if max(set([lnum_tips, rnum_tips])) > 1 and min(set([lnum_tips, rnum_tips])) == 1:
+                    sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
+                    center = sub_result[0]
+                    tips = sub_result[1]
+                    return [[tips[0][0], tips[0][1]], 1]
 
-                
-        cv2.imshow('draw', draw_img1)
+        self.draw = draw_img1       
+        #cv2.imshow('node', draw_img1)
         # if cx and point:
         #     return [[point[0],point[1]],[cx,cy]]
         # if point2:
@@ -290,9 +297,11 @@ if __name__ == '__main__':
     pick_handcenter = None
     while True:
         pos = temp.update()
+        cv2.imshow('node',temp.draw)
         if pos:
             #=================PICK==============#
             if voice_flag == 1 and not ready_for_place:
+                temp.trigger = True
                 if pos[-1] == 1:
                     pos_N_cmd.append(int(pos[1][0]))
                     pos_N_cmd.append(int(pos[1][1]))
@@ -302,7 +311,7 @@ if __name__ == '__main__':
                     pos_N_cmd.append(int(pos[3][0]))
                     pos_N_cmd.append(int(pos[3][1]))
                 elif pos[-1] == 3:
-                    temp.trigger = True
+                    rospy.loginfo('get hand mask')
                 pick_handcenter = pos[-2]
                 ready_for_place = True
             #==================PLACE====================#
@@ -316,7 +325,8 @@ if __name__ == '__main__':
                         pos_N_cmd.append(cy)
                     pos_N_cmd.append(pos[1][0])
                     pos_N_cmd.append(pos[1][1])
-                    temp.trigger = False
+                    temp.hand_mask = None
+                    # temp.trigger = False
                 elif pos[-1] == 4:
                     ind = pos[-2].index(max(pos[-2], lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
                     pos_N_cmd.append(int(pos[ind][0]))
