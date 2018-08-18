@@ -17,7 +17,7 @@ class hand_tracking():
 
         frame = image.copy()
         self.radius_thresh = 0.05
-
+        self.result = []
         #_, frame = cap.read()
         #frame = self.warp(frame)
         blur = cv2.blur(frame,(3,3))
@@ -48,7 +48,7 @@ class hand_tracking():
         self.center = None
         self.angle = None
         self.twoangle = None
-        max_area = 500
+        max_area = 1000
         # try:	
         for i in range(len(contours)):
             cnt=contours[i]
@@ -56,28 +56,25 @@ class hand_tracking():
             if(area>max_area):
                 cnts = contours[i]
                 
-                # M = cv2.moments(cnts)
-                # cx = int(M['m10']/M['m00'])
-                # cy = int(M['m01']/M['m00'])
-                # cv2.circle(frame, (cx, cy), 2, (0, 255, 0), -1)
                 epsilon = 0.001*cv2.arcLength(cnt,True)
                 approx = cv2.approxPolyDP(cnt,epsilon,True)
                 hull = cv2.convexHull(cnts)
                 frame,hand_center,hand_radius = self.mark_hand_center(frame, cnts)
                 
                 frame,finger=self.mark_fingers(frame,hull,hand_center,hand_radius)
-                # #Find convex defects
-                # hull2 = cv2.convexHull(cnts,returnPoints = False)
-                # defects = cv2.convexityDefects(cnts,hull2)
-                cv2.drawContours(frame,[approx],-1,(0, 255, 0),1)
-                self.hand_cnt.append([approx])
-        # except Exception as e:
-        #     print(e)
+
+                cv2.drawContours(frame,[approx],-1,(0, 0, 255),1)
+
                 
         cv2.imshow('hand_tracking',frame) 
     def get_result(self):
         #self.filter()
-        return (self.only_point, self.angle), (self.rl_point, self.twoangle), self.center
+        # return (self.only_point, self.angle), (self.rl_point, self.twoangle), self.center
+        if len(self.result) == 2:
+            if self.result[0][0][0] > self.result[1][0][0]:
+                #self.result = [self.result[1], self.result[0]]
+                self.result = self.result[::-1]
+        return self.result
     
     def filter(self):
         if self.memory1.full:
@@ -125,31 +122,32 @@ class hand_tracking():
                     finger.append((hull[-i][0][0],hull[-i][0][1]))
                 j=j+1
 
-        finger = filter(lambda x: x[0] < cx, finger)
-        finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.6 * radius, finger)
-        dis_center_ls = []        
-        for i in range(len(finger)):
-            dist = np.sqrt((finger[i][0]- cx)**2 + (finger[i][1] - cy)**2)
-            dis_center_ls.append(dist)
-        if len(dis_center_ls) > 2:
-            largest_two = heapq.nlargest(2, dis_center_ls)
+        #finger = filter(lambda x: x[0] < cx, finger)
+        finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.8 * radius, finger)
+        self.result.append([(cx, cy), finger])
+        # dis_center_ls = []        
+        # for i in range(len(finger)):
+        #     dist = np.sqrt((finger[i][0]- cx)**2 + (finger[i][1] - cy)**2)
+        #     dis_center_ls.append(dist)
+        # if len(dis_center_ls) > 2:
+        #     largest_two = heapq.nlargest(2, dis_center_ls)
             
-            if largest_two[0] > largest_two[1] * 1.3 and largest_two[0]>70 and radius>26 and largest_two[0] - largest_two[1] > 30 and len(dis_center_ls)<3:
-                #print largest_two[0] , largest_two[1]
-                cv2.putText(frame_in,"pointing",(int(0.38*frame_in.shape[1]),int(0.12*frame_in.shape[0])),cv2.FONT_HERSHEY_DUPLEX,1,(0,255,255),1,8)
-                self.only_point = finger[dis_center_ls.index(largest_two[0])]
+        #     if largest_two[0] > largest_two[1] * 1.3 and largest_two[0]>70 and radius>26 and largest_two[0] - largest_two[1] > 30 and len(dis_center_ls)<3:
+        #         #print largest_two[0] , largest_two[1]
+        #         cv2.putText(frame_in,"pointing",(int(0.38*frame_in.shape[1]),int(0.12*frame_in.shape[0])),cv2.FONT_HERSHEY_DUPLEX,1,(0,255,255),1,8)
+        #         self.only_point = finger[dis_center_ls.index(largest_two[0])]
 
-        elif len(dis_center_ls) == 2:
-            cv2.putText(frame_in,"two finger pointing",(int(0.38*frame_in.shape[1]),int(0.12*frame_in.shape[0])),cv2.FONT_HERSHEY_DUPLEX,1,(0,255,255),1,8)
-            # self.right = finger[0]
-            # self.left = finger[1]
-            self.rl_point = (finger[0], finger[1])
+        # elif len(dis_center_ls) == 2:
+        #     cv2.putText(frame_in,"two finger pointing",(int(0.38*frame_in.shape[1]),int(0.12*frame_in.shape[0])),cv2.FONT_HERSHEY_DUPLEX,1,(0,255,255),1,8)
+        #     # self.right = finger[0]
+        #     # self.left = finger[1]
+        #     self.rl_point = (finger[0], finger[1])
 
-        elif len(dis_center_ls) == 1:
-            if dis_center_ls[0] > 70:
-                #print "only, {}".format(dis_center_ls[0])
-                cv2.putText(frame_in,"pointing",(int(0.38*frame_in.shape[1]),int(0.12*frame_in.shape[0])),cv2.FONT_HERSHEY_DUPLEX,1,(0,255,255),1,8)
-                self.only_point = finger[0]
+        # elif len(dis_center_ls) == 1:
+        #     if dis_center_ls[0] > 70:
+        #         #print "only, {}".format(dis_center_ls[0])
+        #         cv2.putText(frame_in,"pointing",(int(0.38*frame_in.shape[1]),int(0.12*frame_in.shape[0])),cv2.FONT_HERSHEY_DUPLEX,1,(0,255,255),1,8)
+        #         self.only_point = finger[0]
         '''
         add something unrelevant
         '''
@@ -157,37 +155,36 @@ class hand_tracking():
 
 
         
-        if self.only_point is not None:
-            self.memory1.append(1)
-            px, py = self.only_point
-            cx, cy = self.center
-            self.angle = math.atan2(cy-py, cx-px)
-            self.angle = np.rad2deg(self.angle)
-            # print(self.angle)
-        else:
-            self.memory1.append(0)
+        # if self.only_point is not None:
+        #     self.memory1.append(1)
+        #     px, py = self.only_point
+        #     cx, cy = self.center
+        #     self.angle = math.atan2(cy-py, cx-px)
+        #     self.angle = np.rad2deg(self.angle)
+        #     # print(self.angle)
+        # else:
+        #     self.memory1.append(0)
 
-        if self.rl_point:
-            self.memory2.append(1)
-            (rx, ry), (lx, ly) = self.rl_point
-            cx, cy = self.center
-            r_angle = math.atan2(cy-ry, cx-rx)
-            r_angle = np.rad2deg(r_angle)
-            l_angle = math.atan2(cy-ly, cx-lx)
-            l_angle = np.rad2deg(l_angle)
-            self.twoangle = (r_angle, l_angle)
-        else:
-            self.memory2.append(0)
+        # if self.rl_point:
+        #     self.memory2.append(1)
+        #     (rx, ry), (lx, ly) = self.rl_point
+        #     cx, cy = self.center
+        #     r_angle = math.atan2(cy-ry, cx-rx)
+        #     r_angle = np.rad2deg(r_angle)
+        #     l_angle = math.atan2(cy-ly, cx-lx)
+        #     l_angle = np.rad2deg(l_angle)
+        #     self.twoangle = (r_angle, l_angle)
+        # else:
+        #     self.memory2.append(0)
        
 
         for k in range(len(finger)):
             cv2.circle(frame_in,finger[k],10,255,2)
             cv2.line(frame_in,finger[k],(cx,cy),255,2)
         return frame_in,finger
-    
 def warp(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[101,160],[531,133],[0,480],[640,480]])
+    pts1 = np.float32([[268,76],[500,58],[272,252],[523,237]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
@@ -197,13 +194,15 @@ def warp(img):
 
 
 
+
 if __name__ == '__main__':
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     while True:
         OK, origin = cap.read()
-        ob = hand_tracking(warp(origin), cache(10), cache(10))
-        if ob.angle is not None:
-            print(ob.angle)
+        ob = hand_tracking(origin, cache(10), cache(10))
+        print(ob.get_result())
+        # if ob.angle is not None:
+        #     print(ob.angle)
         k = cv2.waitKey(1) & 0xFF # large wait time to remove freezing
         if k == 113 or k == 27:
             break

@@ -10,6 +10,11 @@ from google.cloud.speech import enums
 from google.cloud.speech import types
 import pyaudio
 from six.moves import queue
+import datetime
+import rospy
+from std_msgs.msg import Int32
+from std_msgs.msg import String
+
 # [END import_libraries]
 
 # Audio recording parameters
@@ -85,7 +90,14 @@ class MicrophoneStream(object):
 
 def listen_print_loop(responses):
     num_chars_printed = 0
+    pub_select = rospy.Publisher('/voice_command', Int32, queue_size=1)
+    pub_color = rospy.Publisher('/item_color', String, queue_size=20)
+    start_time = datetime.datetime.now()
+
     for response in responses:
+        current_time = datetime.datetime.now()
+        if (current_time - start_time).seconds > 55:
+            return True
         if not response.results:
             continue
         result = response.results[0]
@@ -104,17 +116,31 @@ def listen_print_loop(responses):
             print(transcript + overwrite_chars)
             if re.search(r'\b(exit|quit)\b', transcript, re.I):
                 print('Exiting..')
+                pub_select.publish(-1)
                 return False
-            elif re.search(r'\b(this)\b', transcript, re.I):
+            elif re.search(r'\b(attach|put|move|make|moves|who|attached|attack|attacked|moved|get)\b', transcript, re.I):
                 print(1)
-            elif re.search(r'\b(here|shear|Kia|cheer)\b', transcript, re.I):
+                pub_select.publish(1)
+                if re.search(r'\b(blue)\b', transcript, re.I):
+                    print("blue")
+                    pub_color.publish("blue")
+                elif re.search(r'\b(yellow)\b', transcript, re.I):
+                    print("yellow")
+                    pub_color.publish("yellow")
+                elif re.search(r'\b(green)\b', transcript, re.I):
+                    print("green")
+                    pub_color.publish("green")
+
+            elif re.search(r'\b(here|there|shear|Kia|cheer|this|that)\b', transcript, re.I):
                 print(2)
+                pub_select.publish(2)
                 return True
 
             num_chars_printed = 0
 
 
 def main():
+    rospy.init_node('Speech_node')
     language_code = 'en-US'
     if_restart = True
     client = speech.SpeechClient()
@@ -133,7 +159,8 @@ def main():
 
             responses = client.streaming_recognize(streaming_config, requests)
             if_restart = listen_print_loop(responses)
-            print(responses)
+
+
 
 
 if __name__ == '__main__':
