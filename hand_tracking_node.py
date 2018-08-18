@@ -11,9 +11,11 @@ from math import sqrt
 from copy import deepcopy
 import rospy
 from std_msgs.msg import Int32MultiArray, Int32
+import time
 
 distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
 voice_flag = 0
+
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
@@ -62,8 +64,8 @@ def get_handmask(frame):
     blur = cv2.blur(frame,(3,3))
     hsv = cv2.cvtColor(blur,cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, Hand_low, Hand_high)
-    kernel_square = np.ones((11,11),np.uint8)
-    mask = cv2.dilate(mask,kernel_square,iterations = 3)
+    kernel_square = np.ones((15,15),np.uint8)
+    mask = cv2.dilate(mask,kernel_square,iterations = 4)
     return mask
 
 def get_k_dis((x1, y1), (x2, y2), (x, y)):
@@ -76,13 +78,21 @@ class temp_tracking():
         self.hand_mask = None
         self.trigger = False
         self.after_trigger = False
+    
+    def get_current_frame(self):
+        self.cap.release()
+        self.cap = cv2.VideoCapture(0)
+        OK, origin = self.cap.read()
+        if OK:
+            rect = camrectify(origin)
+            warp = warp_img(rect)
+            return warp.copy()
 
     def update(self):
         '''
         gesture flag for distinguish different scenario
         '''
-        self.surfacels = []
-        self.boxls = []
+        
         OK, origin = self.cap.read()
         x = None
         if OK:
@@ -244,12 +254,17 @@ class temp_tracking():
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
                         # return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [rx, ry], [lx, ly], [rcenter, lcenter], 4]
 
-                elif max(set([lnum_tips, rnum_tips])) == 2 and min(set([lnum_tips, rnum_tips])) == 1:
+                elif max(set([lnum_tips, rnum_tips])) > 2 and min(set([lnum_tips, rnum_tips])) == 1:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
+                    self.draw = draw_img1
                     #rospy.loginfo("multifinger two hand")
-                    return [[tips[0][0], tips[0][1]], 1]
+                    if max(set([lnum_tips, rnum_tips])) == 2:
+                        return [[tips[0][0], tips[0][1]], 1]
+                    elif max(set([lnum_tips, rnum_tips])) > 2:
+                        #rospy.loginfo("get tips")
+                        return [[tips[0][0], tips[0][1]], 5]
                 
                 # elif max(set([lnum_tips, rnum_tips])) > 2 and min(set([lnum_tips, rnum_tips])) == 1:
                 #     if self.hand_mask is not None and self.after_trigger:
@@ -280,7 +295,9 @@ class temp_tracking():
         # if x and point:
         #     return [[point[0],point[1]],[x+w/2,y+h/2]]
 
-    def get_bound(self, img, object_mask, visualization=True):
+    def get_bound(self, image, object_mask, visualization=True):
+        self.surfacels = []
+        self.boxls = []
         (_,object_contours, object_hierarchy)=cv2.findContours(object_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
         if len(object_contours) > 0:
             for i , contour in enumerate(object_contours):
@@ -295,7 +312,7 @@ class temp_tracking():
             boxls_arr = np.array(self.boxls)
             self.boxls = boxls_arr[boxls_arr[:, 0].argsort()].tolist()
         for x, y, w, h in self.boxls:
-            sub = self.image[y:y+h, x:x+w, :]
+            sub = image[y:y+h, x:x+w, :]
             hsv = cv2.cvtColor(sub,cv2.COLOR_BGR2HSV)
             top_mask = cv2.inRange(hsv, Top_low, Top_high)
             (_,top_contours, object_hierarchy)=cv2.findContours(top_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -376,6 +393,29 @@ if __name__ == '__main__':
                     ind = pos[-2].index(max(pos[-2], key=lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
                     pos_N_cmd.append(int(pos[ind][0]))
                     pos_N_cmd.append(int(pos[ind][1]))
+                elif pos[-1] == 5:
+                    rospy.loginfo("two hand one multi one finger")
+                    rospy.sleep(5)
+                    image = temp.get_current_frame()
+                    # cv2.imshow("dddddds", image)
+                    # cv2.waitKey(0)
+                    object_mask = get_objectmask(image)
+                    
+                    mask = cv2.bitwise_and(temp.hand_mask, object_mask)
+                    # temp.boxls = []
+                    # temp.surfacels = []
+                    temp.get_bound(image, object_mask)
+
+
+                    print(temp.surfacels)
+                    for cx, cy in temp.surfacels:
+                        if mask[cy, cx] == 255:
+                            pos_N_cmd.append(int(cx))
+                            pos_N_cmd.append(int(cy))
+                    pos_N_cmd.append(int(pos[0][0]))
+                    pos_N_cmd.append(int(pos[0][1]))
+                    print("getting bitwise for two hand")
+                    temp.hand_mask = None
                 pick_handcenter = None
                 print(pos_N_cmd, "this is published msg")
                 temp.after_trigger = False
