@@ -244,12 +244,31 @@ class temp_tracking():
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
                         # return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [rx, ry], [lx, ly], [rcenter, lcenter], 4]
 
-                if max(set([lnum_tips, rnum_tips])) > 1 and min(set([lnum_tips, rnum_tips])) == 1:
+                elif max(set([lnum_tips, rnum_tips])) == 2 and min(set([lnum_tips, rnum_tips])) == 1:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
                     #rospy.loginfo("multifinger two hand")
                     return [[tips[0][0], tips[0][1]], 1]
+                
+                # elif max(set([lnum_tips, rnum_tips])) > 2 and min(set([lnum_tips, rnum_tips])) == 1:
+                #     if self.hand_mask is not None and self.after_trigger:
+                #             object_mask = get_objectmask(deepcopy(self.image))
+                #             mask = cv2.bitwise_and(self.hand_mask, object_mask)
+                #             temp_result = []
+                #             for cx, cy in self.surfacels:
+                #                 if mask[cy, cx] == 255:
+                #                     temp_result.append((cx, cy))
+                #                     #cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                #             '''
+                #             multihand
+                #             '''
+                #             self.draw = draw_img1
+                #             print("getting bitwise and")
+                #             print([temp_result, tips[0], center,3])
+                #             self.hand_mask = None
+                #             self.after_trigger = False
+                #             return [temp_result, tips[0], center,3]
 
         self.draw = draw_img1       
         #cv2.imshow('node', draw_img1)
@@ -354,7 +373,7 @@ if __name__ == '__main__':
                     temp.trigger = True
                 elif pos[-1] == 4:
                     rospy.loginfo("two hand one point")
-                    ind = pos[-2].index(max(pos[-2], lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
+                    ind = pos[-2].index(max(pos[-2], key=lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
                     pos_N_cmd.append(int(pos[ind][0]))
                     pos_N_cmd.append(int(pos[ind][1]))
                 pick_handcenter = None
