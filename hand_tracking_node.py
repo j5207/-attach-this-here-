@@ -10,12 +10,12 @@ from shapely.geometry import Polygon
 from math import sqrt
 from copy import deepcopy
 import rospy
-from std_msgs.msg import Int32MultiArray, Int32
+from std_msgs.msg import Int32MultiArray, Int32, String
 import time
 
 distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
 voice_flag = 0
-
+color_flag = None
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
@@ -60,6 +60,24 @@ def get_objectmask(img):
     thresh[477:, 50:610] = 0
     return thresh
 
+def get_blue_objectmask(img):
+    hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+    blue_mask = cv2.inRange(hsv, Blue_low, Blue_high)
+    blue_mask = cv2.dilate(blue_mask, kernel = np.ones((11,11),np.uint8))
+    return blue_mask
+
+def get_green_objectmask(img):
+    hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+    green_mask = cv2.inRange(hsv, Green_low, Green_high)
+    green_mask = cv2.dilate(green_mask, kernel = np.ones((11,11),np.uint8))
+    return green_mask
+
+def get_yellow_objectmask(img):
+    hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+    yellow_mask = cv2.inRange(hsv, Yellow_low, Yellow_high)
+    yellow_mask = cv2.dilate(yellow_mask, kernel = np.ones((11,11),np.uint8))
+    return yellow_mask
+
 def get_handmask(frame):
     blur = cv2.blur(frame,(3,3))
     hsv = cv2.cvtColor(blur,cv2.COLOR_BGR2HSV)
@@ -92,7 +110,7 @@ class temp_tracking():
         '''
         gesture flag for distinguish different scenario
         '''
-        
+        global color_flag
         OK, origin = self.cap.read()
         x = None
         if OK:
@@ -121,13 +139,28 @@ class temp_tracking():
                     # print(self.hand_mask)
                     # print(self.after_trigger)
                     if self.hand_mask is not None and self.after_trigger:
-                        object_mask = get_objectmask(deepcopy(self.image))
-                        mask = cv2.bitwise_and(self.hand_mask, object_mask)
-                        temp_result = []
-                        for cx, cy in self.surfacels:
-                            if mask[cy, cx] == 255:
-                                temp_result.append((cx, cy))
-                                #cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                        if color_flag is not None:
+                            object_mask = get_objectmask(deepcopy(self.image))
+                            if color_flag == "yellow":
+                                color_mask = get_yellow_objectmask(deepcopy(self.image))
+                            elif color_flag == "blue":
+                                color_mask = get_blue_objectmask(deepcopy(self.image))
+                            # elif color_flag == "green":
+                            #     color_mask = get_green_objectmask(deepcopy(self.image))
+                            mask = cv2.bitwise_and(self.hand_mask,color_mask)
+                            temp_result = []
+                            for cx, cy in self.surfacels:
+                                if mask[cy, cx] == 255:
+                                    temp_result.append((cx, cy))
+                                    #cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                        else:
+                            object_mask = get_objectmask(deepcopy(self.image))
+                            mask = cv2.bitwise_and(self.hand_mask, object_mask)
+                            temp_result = []
+                            for cx, cy in self.surfacels:
+                                if mask[cy, cx] == 255:
+                                    temp_result.append((cx, cy))
+                                    #cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
                         '''
                         multihand
                         '''
@@ -264,7 +297,7 @@ class temp_tracking():
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
                         # return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [rx, ry], [lx, ly], [rcenter, lcenter], 4]
 
-                elif max(set([lnum_tips, rnum_tips])) > 2 and min(set([lnum_tips, rnum_tips])) == 1:
+                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
@@ -346,12 +379,17 @@ def callback(msg):
     global voice_flag
     voice_flag = msg.data
 
+def colorback(msg):
+    print(msg.data)
+    global color_flag
+    color_flag = msg.data
 
 if __name__ == '__main__':
     temp = temp_tracking()
     rospy.init_node('hand_tracking_node')
     pub = rospy.Publisher('/target_position', Int32MultiArray, queue_size=20)
-    sub = rospy.Subscriber('/voice_command1', Int32, callback)
+    sub = rospy.Subscriber('/voice_command', Int32, callback)
+    sub_for_color = rospy.Subscriber('/item_color', String, colorback)
     ready_for_place = False
     pos_N_cmd = []
     pick_handcenter = None
@@ -407,13 +445,18 @@ if __name__ == '__main__':
                     rospy.loginfo("two hand one multi one finger")
                     rospy.sleep(5)
                     image = temp.get_current_frame()
-                    # cv2.imshow("dddddds", image)
-                    # cv2.waitKey(0)
                     object_mask = get_objectmask(image)
-                    
-                    mask = cv2.bitwise_and(temp.hand_mask, object_mask)
-                    # temp.boxls = []
-                    # temp.surfacels = []
+                    if color_flag is not None:
+                        object_mask = get_objectmask(deepcopy(image))
+                        if color_flag == "yellow":
+                            color_mask = get_yellow_objectmask(deepcopy(image))
+                        elif color_flag == "blue":
+                            color_mask = get_blue_objectmask(deepcopy(image))
+                        # elif color_flag == "green":
+                        #     color_mask = get_green_objectmask(deepcopy(self.image))
+                        mask = cv2.bitwise_and(temp.hand_mask,color_mask)
+                    else:
+                        mask = cv2.bitwise_and(temp.hand_mask, object_mask)
                     temp.get_bound(image, object_mask)
 
 
@@ -431,6 +474,7 @@ if __name__ == '__main__':
                 temp.after_trigger = False
                 pub.publish(Int32MultiArray(data=pos_N_cmd))
                 ready_for_place = False
+                color_flag = None
                 pos_N_cmd = []
         elif voice_flag == -1:
             break

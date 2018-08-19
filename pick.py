@@ -105,14 +105,14 @@ class pick_place():
         if pick_position and place_position:
             self.single_exuete(pick_position, "pick")
             self.single_exuete(place_position, "place")
-            rospy.sleep(1)
+            #rospy.sleep(1)
             rospy.loginfo("let's go and get some rest")
             rest_position = define_grasp([0.486, -0.152, 0.342])
             self.ur5.set_pose_target(rest_position)
             self.ur5.go()
             self.ur5.stop()
             self.ur5.clear_pose_targets()
-            rospy.sleep(2)
+            rospy.sleep(1)
 
     def pickplace_cb(self, msg):
         #print(msg)
