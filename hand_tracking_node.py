@@ -11,7 +11,7 @@ from shapely.geometry import Polygon
 from math import sqrt
 from copy import deepcopy
 import rospy
-from std_msgs.msg import Int32MultiArray, Int32
+from std_msgs.msg import Int32MultiArray, Int32, String
 
 distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
 voice_flag = 0
@@ -103,6 +103,7 @@ class temp_tracking():
     def update(self):
         global isstatic
         global tiptract
+        global color_flag
         '''
         gesture flag for distinguish different scenario
         '''
@@ -139,15 +140,16 @@ class temp_tracking():
                     if isstatic:
                         if len(tiptract) == 0:
                             if self.hand_mask is not None and self.after_trigger:
+                                print(color_flag)
                                 if color_flag is not None:
                                     object_mask = get_objectmask(deepcopy(self.image))
                                     if color_flag == "yellow":
                                         color_mask = get_yellow_objectmask(deepcopy(self.image))
                                     elif color_flag == "blue":
                                         color_mask = get_blue_objectmask(deepcopy(self.image))
-                                    elif color_flag == "green":
-                                        color_mask = get_green_objectmask(deepcopy(self.image))
-                                    mask = cv2.bitwise_and(self.hand_mask, object_mask, color_mask)
+                                    # elif color_flag == "green":
+                                    #     color_mask = get_green_objectmask(deepcopy(self.image))
+                                    mask = cv2.bitwise_and(self.hand_mask,color_mask)
                                     temp_result = []
                                     for cx, cy in self.surfacels:
                                         if mask[cy, cx] == 255:
@@ -201,6 +203,7 @@ class temp_tracking():
                                 if im[cy, cx] == 255:
                                     temp_result.append((cx, cy))
                             tiptract = []
+                            rospy.loginfo("coord: {}".format(temp_result))
                             return [temp_result, tips[0], 3]
 
 
@@ -398,7 +401,7 @@ if __name__ == '__main__':
     temp = temp_tracking()
     rospy.init_node('hand_tracking_node')
     pub = rospy.Publisher('/target_position', Int32MultiArray, queue_size=20)
-    sub = rospy.Subscriber('/voice_command1', Int32, callback)
+    sub = rospy.Subscriber('/voice_command', Int32, callback)
     sub_for_color = rospy.Subscriber('/item_color', String, colorback)
     ready_for_place = False
     pos_N_cmd = []
@@ -414,6 +417,7 @@ if __name__ == '__main__':
             tippoints = []
             for i in range(5):
                 if temp.movingtip is not None:
+                    temp.update()
                     tippoints.append(temp.movingtip)
                     time.sleep(0.2)
                 else:
@@ -421,7 +425,7 @@ if __name__ == '__main__':
             if len(tippoints) == 5:
                 tips_x = [tippoints[0][0], tippoints[1][0], tippoints[2][0], tippoints[3][0], tippoints[4][0]]
                 tips_y = [tippoints[0][1], tippoints[1][1], tippoints[2][1], tippoints[3][1], tippoints[4][1]]
-                if np.std(tips_x, ddof=1)>1 and np.std(tips_y, ddof=1)>1:
+                if np.std(tips_x, ddof=1)>1 or np.std(tips_y, ddof=1)>1:
                     isstatic = False
                     while not isstatic:
                         pos = temp.update()
