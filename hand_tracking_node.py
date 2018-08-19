@@ -144,8 +144,9 @@ class temp_tracking():
                         for x, y, w, h in self.boxls:
                             length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
                         length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
+                        length_ls = filter(lambda x: x[0] < 30, length_ls)
                         if len(length_ls) > 0:
-                            x,y = min(length_ls, key=lambda x: x[0])[1]
+                            x,y = min(length_ls, key=lambda x: distant((x[1][0], x[1][1]), (point[0], point[1])))[1]
                             ind = test_insdie((x, y), self.boxls)
                             x, y, w, h = self.boxls[ind]
                             cx, cy = self.surfacels[ind]
@@ -158,6 +159,9 @@ class temp_tracking():
                             '''
                             self.draw = draw_img1
                             return [[point[0],point[1]],[cx,cy], center,1]
+                        else:
+                            self.draw = draw_img1
+                            return [[point[0],point[1]], center,1]
             #  '''
             # one hand and two finger, flag == 2
             # '''
@@ -168,28 +172,34 @@ class temp_tracking():
                     rpoint, lpoint = tips
                     for x, y, w, h in self.boxls:
                         length_lsr.append((get_k_dis((rpoint[0], rpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                    rx,ry = min(length_lsr, key=lambda x: x[0])[1]
-                    rind = test_insdie((rx, ry), self.boxls)
-                    rx, ry = self.surfacels[rind]
-                    x, y, w, h = self.boxls[rind]
-                    del boxls[rind]
-                    cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                    cv2.putText(draw_img1,"pointed_right",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-                    if len(boxls) > 0:
-                        for x, y, w, h in boxls:
-                            length_lsl.append((get_k_dis((lpoint[0], lpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                        lx,ly = min(length_lsl, key=lambda x: x[0])[1]
-                        lind = test_insdie((lx, ly), boxls)
-                        lx, ly = self.surfacels[lind]
-                        x, y, w, h = boxls[lind]
+                    length_lsr = filter(lambda x: (rpoint[1] - x[1][1]) * (rpoint[1] - center[1]) <= 0, length_lsr)
+                    length_lsr = filter(lambda x: x[0] < 30, length_lsr)
+                    if len(length_lsr) > 0:
+                        rx,ry = min(length_lsr, key=lambda x: distant((x[1][0], x[1][1]), (rpoint[0], rpoint[1])))[1]
+                        rind = test_insdie((rx, ry), self.boxls)
+                        rx, ry = self.surfacels[rind]
+                        x, y, w, h = self.boxls[rind]
+                        del boxls[rind]
                         cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                        cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-                        '''
-                        flag is 2
-                        '''
-                        self.draw = draw_img1
-                        
-                        return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], center,2]
+                        cv2.putText(draw_img1,"pointed_right",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                        if len(boxls) > 0:
+                            for x, y, w, h in boxls:
+                                length_lsl.append((get_k_dis((lpoint[0], lpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
+                            length_lsl = filter(lambda x: (lpoint[1] - x[1][1]) * (lpoint[1] - center[1]) <= 0, length_lsl)
+                            length_lsl = filter(lambda x: x[0] < 30, length_lsl)
+                            if len(length_lsl) > 0:
+                                lx,ly = min(length_lsl, key=lambda x: distant((x[1][0], x[1][1]), (lpoint[0], lpoint[1])))[1]
+                                lind = test_insdie((lx, ly), boxls)
+                                lx, ly = self.surfacels[lind]
+                                x, y, w, h = boxls[lind]
+                                cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
+                                cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                                '''
+                                flag is 2
+                                '''
+                                self.draw = draw_img1
+                                
+                                return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], center,2]
 
                 # '''
                 # one hand and multi finger, flag == 3
@@ -354,7 +364,7 @@ if __name__ == '__main__':
             temp.trigger = True
             pos = temp.update()
             if pos:
-                if pos[-1] == 1:
+                if pos[-1] == 1 and len(pos) == 4:
                     rospy.loginfo("one finger one hand")
                     pos_N_cmd.append(int(pos[1][0]))
                     pos_N_cmd.append(int(pos[1][1]))
@@ -379,7 +389,7 @@ if __name__ == '__main__':
                     rospy.loginfo("one finger one hand")
                     pos_N_cmd.append(int(pos[0][0]))
                     pos_N_cmd.append(int(pos[0][1]))
-                elif pos[-1] == 3:
+                elif pos[-1] == 3 and len(pos_N_cmd) == 0:
                     rospy.loginfo("multifinger one hand")
                     for cx, cy in pos[0]:
                         pos_N_cmd.append(cx)
