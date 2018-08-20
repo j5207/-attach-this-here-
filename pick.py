@@ -51,8 +51,8 @@ class pick_place():
         print(self.robot.get_planning_frame())
         print(self.ur5.get_end_effector_link())
         print("======================================================")
-        self.ur5.set_max_velocity_scaling_factor(0.3)
-        self.ur5.set_max_acceleration_scaling_factor(0.3)
+        self.ur5.set_max_velocity_scaling_factor(0.2)
+        self.ur5.set_max_acceleration_scaling_factor(0.2)
         self.ur5.set_end_effector_link("fts_toolside")
         self.ur5.set_planning_time(60.0)
         #self.ur5.set_planner_id("RRTkConfigDefault")
@@ -105,34 +105,48 @@ class pick_place():
         if pick_position and place_position:
             self.single_exuete(pick_position, "pick")
             self.single_exuete(place_position, "place")
-            rospy.sleep(1)
+            #rospy.sleep(1)
             rospy.loginfo("let's go and get some rest")
             rest_position = define_grasp([0.486, -0.152, 0.342])
             self.ur5.set_pose_target(rest_position)
             self.ur5.go()
             self.ur5.stop()
             self.ur5.clear_pose_targets()
-            rospy.sleep(2)
+            rospy.sleep(1)
 
     def pickplace_cb(self, msg):
         #print(msg)
         print(msg.data)
-        if len(msg.data) == 4:
-            rospy.loginfo("hahaha, there is a single point action")
-            pick_x, pick_y = coord_converter(msg.data[0], msg.data[1])
-            place_x, place_y = coord_converter(msg.data[2], msg.data[3])
+        a = list(msg.data)
+        mean_x = np.mean([a[i] for i in range(0, len(a)-2, 2)])
+        mean_y = np.mean([a[i] for i in range(1, len(a)-2, 2)])
+        num_goals = (len(msg.data) -2)/2
+        rospy.loginfo("there is {} goals".format(num_goals))
+        for i in range(0, len(a)-2, 2):
+            pick_x, pick_y = coord_converter(msg.data[i], msg.data[i+1])
+            leeway_x = int(msg.data[i] - mean_x)
+            leeway_y = int(msg.data[i+1] - mean_y)
+            place_x, place_y = coord_converter(msg.data[-2] + leeway_x, msg.data[-1] + leeway_y)
             print(pick_x, pick_y)
             print(place_x, place_y)
             self.pair_exuete([pick_x, pick_y], [place_x, place_y])
-        if len(msg.data) == 6:
-            rospy.loginfo("hahaha, there is a double point action")
-            leeway = 30
-            pick_x1, pick_y1 = coord_converter(msg.data[0], msg.data[1])
-            place_x1, place_y1 = coord_converter(msg.data[4] - leeway, msg.data[5])
-            pick_x2, pick_y2 = coord_converter(msg.data[2], msg.data[3])
-            place_x2, place_y2 = coord_converter(msg.data[4] + leeway, msg.data[5])
-            self.pair_exuete([pick_x1, pick_y1], [place_x1, place_y1])
-            self.pair_exuete([pick_x2, pick_y2], [place_x2, place_y2])
+            
+        # if len(msg.data) == 4:
+        #     rospy.loginfo("hahaha, there is a single point action")
+        #     pick_x, pick_y = coord_converter(msg.data[0], msg.data[1])
+        #     place_x, place_y = coord_converter(msg.data[2], msg.data[3])
+        #     print(pick_x, pick_y)
+        #     print(place_x, place_y)
+        #     self.pair_exuete([pick_x, pick_y], [place_x, place_y])
+        # if len(msg.data) == 6:
+        #     rospy.loginfo("hahaha, there is a double point action")
+        #     leeway = 30
+        #     pick_x1, pick_y1 = coord_converter(msg.data[0], msg.data[1])
+        #     place_x1, place_y1 = coord_converter(msg.data[4] - leeway, msg.data[5])
+        #     pick_x2, pick_y2 = coord_converter(msg.data[2], msg.data[3])
+        #     place_x2, place_y2 = coord_converter(msg.data[4] + leeway, msg.data[5])
+        #     self.pair_exuete([pick_x1, pick_y1], [place_x1, place_y1])
+        #     self.pair_exuete([pick_x2, pick_y2], [place_x2, place_y2])
 
 
 # class exuete():
