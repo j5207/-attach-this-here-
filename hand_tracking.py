@@ -96,8 +96,8 @@ class hand_tracking():
         max_d=0
         pt=(0,0)
         x,y,w,h = cv2.boundingRect(cont)
-        for ind_y in xrange(int(y),int(y+h)): #around 0.25 to 0.6 region of height (Faster calculation with ok results)
-            for ind_x in xrange(int(x),int(x+w)): #around 0.3 to 0.6 region of width (Faster calculation with ok results)
+        for ind_y in xrange(int(y),int(y+h)): 
+            for ind_x in xrange(int(x),int(x+w)): 
                 dist= cv2.pointPolygonTest(cont,(ind_x,ind_y),True)
                 if(dist>max_d):
                     max_d=dist
@@ -124,7 +124,12 @@ class hand_tracking():
 
         #finger = filter(lambda x: x[0] < cx, finger)
         finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.8 * radius, finger)
-        self.result.append([(cx, cy), finger])
+        self.result.append([(cx, cy), finger, radius])
+        # finger = [max(finger, key=lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2))]
+        # print(radius)
+            
+
+
         # dis_center_ls = []        
         # for i in range(len(finger)):
         #     dist = np.sqrt((finger[i][0]- cx)**2 + (finger[i][1] - cy)**2)
