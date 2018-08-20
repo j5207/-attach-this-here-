@@ -20,7 +20,7 @@ class hand_tracking():
         self.result = []
         #_, frame = cap.read()
         #frame = self.warp(frame)
-        blur = cv2.blur(frame,(3,3))
+        blur = cv2.blur(frame,(11,11))
         hsv = cv2.cvtColor(blur,cv2.COLOR_BGR2HSV)
         kernal = np.ones((7 ,7), "uint8")
         mask = cv2.inRange(hsv, Hand_low, Hand_high)
@@ -102,7 +102,7 @@ class hand_tracking():
                 if(dist>max_d):
                     max_d=dist
                     pt=(ind_x,ind_y)
-        cv2.circle(frame_in,pt,int(max_d),(255,0,0),2)
+        cv2.circle(frame_in,pt,int(max_d),(0,0,255),2)
         return frame_in,pt,max_d
 
     def mark_fingers(self, frame_in,hull,pt,radius):
@@ -179,8 +179,8 @@ class hand_tracking():
        
 
         for k in range(len(finger)):
-            cv2.circle(frame_in,finger[k],10,255,2)
-            cv2.line(frame_in,finger[k],(cx,cy),255,2)
+            cv2.circle(frame_in,finger[k],10,(0, 0, 255),2)
+            cv2.line(frame_in,finger[k],(cx,cy),(0, 0,255),2)
         return frame_in,finger
 def warp(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
@@ -196,11 +196,12 @@ def warp(img):
 
 
 if __name__ == '__main__':
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     while True:
         OK, origin = cap.read()
-        ob = hand_tracking(origin, cache(10), cache(10))
-        print(ob.get_result())
+        if OK:
+            ob = hand_tracking(warp(origin), cache(10), cache(10))
+            #print(ob.get_result())
         # if ob.angle is not None:
         #     print(ob.angle)
         k = cv2.waitKey(1) & 0xFF # large wait time to remove freezing
