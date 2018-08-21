@@ -11,6 +11,7 @@ from math import sqrt
 from copy import deepcopy
 import rospy
 from std_msgs.msg import Int32MultiArray, Int32, String
+import socket
 import time
 
 distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
@@ -90,10 +91,21 @@ def get_k_dis((x1, y1), (x2, y2), (x, y)):
     coord = ((x, y), (x1, y1), (x2, y2))
     return Polygon(coord).area / distant((x1, y1), (x2, y2))
 
+def netsend(msg, localhost="192.168.1.115", port=6868):
+    a = deepcopy(msg)
+    a.append(-1)
+    for i in range(len(a)):
+        client = socket.socket()
+        client.connect((localhost, port))
+        line = str(a[i])
+        #print(line)
+        client.send(line.encode("utf-8"))
+        client.close()
+
 class temp_tracking():
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
-        self.hand_mask = None
+        self.hand_mask = []
         self.trigger = False
         self.after_trigger = False
     
@@ -131,12 +143,13 @@ class temp_tracking():
             if num_hand_view == 1:
                 center = result[0][0]
                 tips = result[0][1]
+                radius = result[0][2]
                 num_tips = len(tips)
             # '''
             # one hand and one finger, flag == 1
             # '''
-                if num_tips == 1 and len(self.boxls) > 0:
-                    if self.hand_mask is not None and self.after_trigger:
+                if num_tips == 1 and len(self.boxls) > 0 and radius > 35:
+                    if len(self.hand_mask) > 0 and self.after_trigger:
                         if color_flag is not None:
                             object_mask = get_objectmask(deepcopy(self.image))
                             if color_flag == "yellow":
@@ -145,14 +158,20 @@ class temp_tracking():
                                 color_mask = get_blue_objectmask(deepcopy(self.image))
                             # elif color_flag == "green":
                             #     color_mask = get_green_objectmask(deepcopy(self.image))
-                            mask = cv2.bitwise_and(self.hand_mask,color_mask)
+                            mask = self.hand_mask[0]
+                            for i in range(1, len(self.hand_mask), 1):
+                                mask = cv2.bitwise_or(self.hand_mask[i],mask)                     
+                            mask = cv2.bitwise_and(mask,color_mask)
                             temp_result = []
                             for cx, cy in self.surfacels:
                                 if mask[cy, cx] == 255:
                                     temp_result.append((cx, cy))
                         else:
                             object_mask = get_objectmask(deepcopy(self.image))
-                            mask = cv2.bitwise_and(self.hand_mask, object_mask)
+                            mask = self.hand_mask[0]
+                            for i in range(1, len(self.hand_mask), 1):
+                                mask = cv2.bitwise_or(self.hand_mask[i],mask)                     
+                            mask = cv2.bitwise_and(mask,object_mask)
                             temp_result = []
                             for cx, cy in self.surfacels:
                                 if mask[cy, cx] == 255:
@@ -163,7 +182,7 @@ class temp_tracking():
                         self.draw = draw_img1
                         print("getting bitwise and")
                         print([temp_result, tips[0], center,3])
-                        self.hand_mask = None
+                        self.hand_mask = []
                         self.after_trigger = False
                         return [temp_result, tips[0], center,3]
                         
@@ -173,7 +192,7 @@ class temp_tracking():
                         for x, y, w, h in self.boxls:
                             length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
                         length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
-                        length_ls = filter(lambda x: x[0] < 30, length_ls)
+                        length_ls = filter(lambda x: x[0] < 20, length_ls)
                         if len(length_ls) > 0:
                             x,y = min(length_ls, key=lambda x: distant((x[1][0], x[1][1]), (point[0], point[1])))[1]
                             ind = test_insdie((x, y), self.boxls)
@@ -194,7 +213,7 @@ class temp_tracking():
             #  '''
             # one hand and two finger, flag == 2
             # '''
-                if num_tips == 2 and len(self.boxls) > 0:
+                elif num_tips == 2 and len(self.boxls) > 0 and radius > 35:
                     boxls = deepcopy(self.boxls)
                     length_lsr = []
                     length_lsl = []
@@ -233,13 +252,44 @@ class temp_tracking():
                 # '''
                 # one hand and multi finger, flag == 3
                 # '''
-                if num_tips > 2:
+                elif num_tips > 2 and radius > 35:
                     if self.trigger:
-                        self.hand_mask = get_handmask(deepcopy(self.image))
+                        self.hand_mask.append(get_handmask(deepcopy(self.image)))
                         self.draw = draw_img1
                         self.trigger = False
                         return [center,3]
 
+                elif radius < 35 and len(self.boxls) > 0 and len(tips) > 0:
+                    point = max(tips, key=lambda x: np.sqrt((x[0]- center[0])**2 + (x[1] - center[1])**2))
+                    length_ls = []
+                    for x, y, w, h in self.boxls:
+                        length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
+                    length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
+                    #print("haha", len(length_ls))
+                    length_ls = filter(lambda x: x[0] < 50, length_ls)
+                    #print("ddd", len(length_ls))
+                    sub_result = []
+                    if len(length_ls) > 0:
+                        for i in range(len(length_ls)):
+                            # x,y = min(length_ls, key=lambda x: distant((x[1][0], x[1][1]), (point[0], point[1])))[1]
+                            # ind = test_insdie((x, y), self.boxls)
+                            x,y = length_ls[i][1]
+                            ind = test_insdie((x, y), self.boxls)
+                            x, y, w, h = self.boxls[ind]
+                            cx, cy = self.surfacels[ind]
+                            sub_result.append((cx, cy))
+                            cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
+                            cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                            cv2.putText(draw_img1,"general",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                        
+                        '''
+                        flag is 1
+                        '''
+                        self.draw = draw_img1
+                        return [sub_result, 6]
+                    else:
+                        self.draw = draw_img1
+                        return None
                     
 
 
@@ -255,14 +305,16 @@ class temp_tracking():
                 lcenter = result[0][0]
                 ltips = result[0][1]
                 lnum_tips = len(ltips)
+                lradius = result[0][2]
 
                 rcenter = result[1][0]
                 rtips = result[1][1]
                 rnum_tips = len(rtips)
+                rradius = result[1][2]
                 # '''
                 # two hand is both one finger pointing, ONLY PLACE
                 # '''
-                if set([lnum_tips, rnum_tips]) == set([1,1]) and len(self.boxls) > 0:
+                if set([lnum_tips, rnum_tips]) == set([1,1]) and len(self.boxls) > 0 and np.min([lradius, rradius]) > 30:
                     self.draw = draw_img1
                     
                     '''
@@ -270,7 +322,7 @@ class temp_tracking():
                     '''
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
 
-                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1:
+                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1 and np.min([lradius, rradius]) > 35:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
@@ -279,6 +331,13 @@ class temp_tracking():
                         return [[tips[0][0], tips[0][1]], 1]
                     elif max(set([lnum_tips, rnum_tips])) > 2:
                         return [[tips[0][0], tips[0][1]], 5]
+                
+                elif min(set([lnum_tips, rnum_tips])) == 1 and np.min([lradius, rradius]) < 35:
+                    sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
+                    center = sub_result[0][0]
+                    tips = sub_result[0][1]
+                    self.draw = draw_img1
+                    return [[tips[0][0], tips[0][1]], 1]
         self.draw = draw_img1       
 
     def get_bound(self, image, object_mask, visualization=True):
@@ -331,7 +390,7 @@ if __name__ == '__main__':
     temp = temp_tracking()
     rospy.init_node('hand_tracking_node')
     pub = rospy.Publisher('/target_position', Int32MultiArray, queue_size=20)
-    sub = rospy.Subscriber('/voice_command', Int32, callback)
+    sub = rospy.Subscriber('/voice_command1', Int32, callback)
     sub_for_color = rospy.Subscriber('/item_color', String, colorback)
     ready_for_place = False
     pos_N_cmd = []
@@ -356,8 +415,17 @@ if __name__ == '__main__':
                     pos_N_cmd.append(int(pos[3][0]))
                     pos_N_cmd.append(int(pos[3][1]))
                 elif pos[-1] == 3:
+                    start = time.time()
+                    while time.time() - start < 1.0:
+                        temp.update()
+                        rospy.loginfo("brushing")
+                    rospy.loginfo("finish brushing")
                     rospy.loginfo("multifinger one hand previous")
                     rospy.loginfo('not getting new hand mask')
+                elif pos[-1] == 6:
+                    for cx, cy in pos[0]:
+                        pos_N_cmd.append(int(cx))
+                        pos_N_cmd.append(int(cy))
                 pick_handcenter = pos[-2]
                 temp.trigger = False
                 ready_for_place = True
@@ -377,7 +445,7 @@ if __name__ == '__main__':
                         pos_N_cmd.append(cy)
                     pos_N_cmd.append(pos[1][0])
                     pos_N_cmd.append(pos[1][1])
-                    temp.hand_mask = None
+                    temp.hand_mask = []
                     temp.trigger = True
                 elif pos[-1] == 4:
                     rospy.loginfo("two hand one point place")
@@ -397,9 +465,16 @@ if __name__ == '__main__':
                             color_mask = get_blue_objectmask(deepcopy(image))
                         # elif color_flag == "green":
                         #     color_mask = get_green_objectmask(deepcopy(self.image))
-                        mask = cv2.bitwise_and(temp.hand_mask,color_mask)
+                        mask = temp.hand_mask[0]
+                        for i in range(1, len(temp.hand_mask), 1):
+                            mask = cv2.bitwise_or(temp.hand_mask[i],mask)                     
+                        mask = cv2.bitwise_and(mask,color_mask)
+                        #mask = cv2.bitwise_and(temp.hand_mask,color_mask)
                     else:
-                        mask = cv2.bitwise_and(temp.hand_mask, object_mask)
+                        mask = temp.hand_mask[0]
+                        for i in range(1, len(temp.hand_mask), 1):
+                            mask = cv2.bitwise_or(temp.hand_mask[i],mask)                     
+                        mask = cv2.bitwise_and(mask,object_mask)
                     temp.get_bound(image, object_mask)
 
 
@@ -411,10 +486,11 @@ if __name__ == '__main__':
                     pos_N_cmd.append(int(pos[0][0]))
                     pos_N_cmd.append(int(pos[0][1]))
                     print("getting bitwise for two hand")
-                    temp.hand_mask = None
+                    temp.hand_mask = []
                 pick_handcenter = None
                 print(pos_N_cmd, "this is published msg")
                 temp.after_trigger = False
+                netsend(pos_N_cmd)
                 pub.publish(Int32MultiArray(data=pos_N_cmd))
                 ready_for_place = False
                 color_flag = None

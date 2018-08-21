@@ -54,7 +54,7 @@ class pick_place():
         self.ur5.set_max_velocity_scaling_factor(0.2)
         self.ur5.set_max_acceleration_scaling_factor(0.2)
         self.ur5.set_end_effector_link("fts_toolside")
-        self.ur5.set_planning_time(60.0)
+        self.ur5.set_planning_time(10.0)
         #self.ur5.set_planner_id("RRTkConfigDefault")
         self.gripper_ac = RobotiqActionClient('icl_phri_gripper/gripper_controller')
         self.gripper_ac.wait_for_server()
