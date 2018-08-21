@@ -322,7 +322,7 @@ class temp_tracking():
                 # '''
                 # one hand and multi finger, flag == 3
                 # '''
-                elif num_tips > 2 and label == 3:
+                elif num_tips > 0 and label == 3:
                     if self.trigger:
                         self.hand_mask.append(get_handmask(deepcopy(self.image)))
                         self.draw = draw_img1
