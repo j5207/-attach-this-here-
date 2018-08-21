@@ -96,6 +96,7 @@ class hand_tracking():
         max_d=0
         pt=(0,0)
         x,y,w,h = cv2.boundingRect(cont)
+        self.box = (x,y,w,h)
         for ind_y in xrange(int(y),int(y+h)): 
             for ind_x in xrange(int(x),int(x+w)): 
                 dist= cv2.pointPolygonTest(cont,(ind_x,ind_y),True)
@@ -124,64 +125,8 @@ class hand_tracking():
 
         #finger = filter(lambda x: x[0] < cx, finger)
         finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.8 * radius, finger)
-        self.result.append([(cx, cy), finger, radius])
-        # finger = [max(finger, key=lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2))]
-        # print(radius)
-            
-
-
-        # dis_center_ls = []        
-        # for i in range(len(finger)):
-        #     dist = np.sqrt((finger[i][0]- cx)**2 + (finger[i][1] - cy)**2)
-        #     dis_center_ls.append(dist)
-        # if len(dis_center_ls) > 2:
-        #     largest_two = heapq.nlargest(2, dis_center_ls)
-            
-        #     if largest_two[0] > largest_two[1] * 1.3 and largest_two[0]>70 and radius>26 and largest_two[0] - largest_two[1] > 30 and len(dis_center_ls)<3:
-        #         #print largest_two[0] , largest_two[1]
-        #         cv2.putText(frame_in,"pointing",(int(0.38*frame_in.shape[1]),int(0.12*frame_in.shape[0])),cv2.FONT_HERSHEY_DUPLEX,1,(0,255,255),1,8)
-        #         self.only_point = finger[dis_center_ls.index(largest_two[0])]
-
-        # elif len(dis_center_ls) == 2:
-        #     cv2.putText(frame_in,"two finger pointing",(int(0.38*frame_in.shape[1]),int(0.12*frame_in.shape[0])),cv2.FONT_HERSHEY_DUPLEX,1,(0,255,255),1,8)
-        #     # self.right = finger[0]
-        #     # self.left = finger[1]
-        #     self.rl_point = (finger[0], finger[1])
-
-        # elif len(dis_center_ls) == 1:
-        #     if dis_center_ls[0] > 70:
-        #         #print "only, {}".format(dis_center_ls[0])
-        #         cv2.putText(frame_in,"pointing",(int(0.38*frame_in.shape[1]),int(0.12*frame_in.shape[0])),cv2.FONT_HERSHEY_DUPLEX,1,(0,255,255),1,8)
-        #         self.only_point = finger[0]
-        '''
-        add something unrelevant
-        '''
-        
-
-
-        
-        # if self.only_point is not None:
-        #     self.memory1.append(1)
-        #     px, py = self.only_point
-        #     cx, cy = self.center
-        #     self.angle = math.atan2(cy-py, cx-px)
-        #     self.angle = np.rad2deg(self.angle)
-        #     # print(self.angle)
-        # else:
-        #     self.memory1.append(0)
-
-        # if self.rl_point:
-        #     self.memory2.append(1)
-        #     (rx, ry), (lx, ly) = self.rl_point
-        #     cx, cy = self.center
-        #     r_angle = math.atan2(cy-ry, cx-rx)
-        #     r_angle = np.rad2deg(r_angle)
-        #     l_angle = math.atan2(cy-ly, cx-lx)
-        #     l_angle = np.rad2deg(l_angle)
-        #     self.twoangle = (r_angle, l_angle)
-        # else:
-        #     self.memory2.append(0)
-       
+        self.result.append([(cx, cy), finger, radius, self.box])
+    
 
         for k in range(len(finger)):
             cv2.circle(frame_in,finger[k],10,(0, 0, 255),2)
