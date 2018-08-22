@@ -59,7 +59,7 @@ class pick_place:
         self.listener = tf.TransformListener()
         self.Transformer = tf.TransformerROS()
 
-        joint_weights = [6,5,4,3,2,1]
+        joint_weights = [10,5,4,3,2,1]
         self.ik = InverseKinematicsUR5()
         self.ik.setJointWeights(joint_weights)
         self.ik.setJointLimits(-pi, pi)
@@ -162,8 +162,8 @@ if __name__ == '__main__':
     task = pick_place()
     # pick_x, pick_y = coord_converter(108, 150)
     # place_x, place_y = coord_converter(177, 193)
-    pick_x, pick_y = coord_converter(108, 150)
-    place_x, place_y = coord_converter(177, 193)
+    pick_x, pick_y = coord_converter(640, 480)
+    place_x, place_y = coord_converter(0, 0)
     task.pair_exuete([pick_x, pick_y], [place_x, place_y])
     # listener = tf.TransformListener()
     # Transformer = tf.TransformerROS()
