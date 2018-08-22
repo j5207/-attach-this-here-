@@ -13,6 +13,19 @@ import rospy
 from std_msgs.msg import Int32MultiArray, Int32, String
 import socket
 import time
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import os
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+import torch
+from PIL import Image, ImageTk
+from torchvision import transforms
+from torch.autograd import Variable
+from utils import Net
+
+
 
 distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
 voice_flag = 0
@@ -102,13 +115,54 @@ def netsend(msg, localhost="192.168.1.115", port=6868):
         client.send(line.encode("utf-8"))
         client.close()
 
+
+
+
+
+
+
+
 class temp_tracking():
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
         self.hand_mask = []
         self.trigger = False
         self.after_trigger = False
+        if torch.cuda.is_available():
+            self.net = Net().cuda()
+        else:
+            self.net = Net()
+        self.net.load_state_dict(torch.load(f='/home/intuitivecompting/catkin_ws/src/ur5/ur5_with_gripper/icl_phri_robotiq_control/src/model'))
     
+    def test(self, box ,draw_img):
+        net = self.net
+        frame = self.image.copy()
+        preprocess = transforms.Compose([transforms.Resize((50, 50)),
+                                                    transforms.ToTensor()])
+        #preprocess = transforms.Compose([transforms.Pad(30),
+         #                                             transforms.ToTensor()])
+        x,y,w,h = box
+        temp = frame[y:y+h, x:x+w, :]
+        temp = cv2.cvtColor(temp,cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(temp)
+        img_tensor = preprocess(image)
+        img_tensor.unsqueeze_(0)
+        img_variable = Variable(img_tensor).cuda()
+        if torch.cuda.is_available():
+            img_variable = Variable(img_tensor).cuda()
+            out = np.argmax(net(img_variable).cpu().data.numpy()[0])
+            #print(np.max(net(img_variable).cpu().data.numpy()[0]))
+        else:
+            img_variable = Variable(img_tensor)
+            out = np.argmax(net(img_variable).data.numpy()[0])
+            # if np.max(net(img_variable).cpu().data.numpy()[0]) > 0.3:
+            #     out = np.argmax(net(img_variable).cpu().data.numpy()[0])
+            # else:
+            #     out = -1
+        cv2.rectangle(draw_img,(x,y),(x+w,y+h),(0,0,255),2)
+        cv2.putText(draw_img,str(out),(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+        return int(out)
+
     def get_current_frame(self):
         self.cap.release()
         self.cap = cv2.VideoCapture(0)
@@ -135,6 +189,18 @@ class temp_tracking():
             self.get_bound(draw_img1, thresh, visualization=True)
             cx, cy = None, None
             lx, rx = None, None
+
+            # self.handls = []
+            # hsv = cv2.cvtColor(warp.copy(),cv2.COLOR_BGR2HSV)
+            # hand_mask = cv2.inRange(hsv, Hand_low, Hand_high)
+            # hand_mask = cv2.dilate(hand_mask, kernel = np.ones((7,7),np.uint8))
+            # (_,hand_contours, hand_hierarchy)=cv2.findContours(hand_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+            # for i , contour in enumerate(hand_contours):
+            #     area = cv2.contourArea(contour)
+            #     if area>600 and area < 100000 and hand_hierarchy[0, i, 3] == -1:					
+            #         x,y,w,h = cv2.boundingRect(contour)
+            #         self.handls.append([x, y, w, h])
+            
             result = hand_tracking(warp_img(origin), cache(10), cache(10)).get_result()
             num_hand_view = len(result)
             '''
@@ -144,11 +210,14 @@ class temp_tracking():
                 center = result[0][0]
                 tips = result[0][1]
                 radius = result[0][2]
+                box = result[0][3]
                 num_tips = len(tips)
+                label = self.test(box, draw_img1)
             # '''
             # one hand and one finger, flag == 1
             # '''
-                if num_tips == 1 and len(self.boxls) > 0 and radius > 35:
+                if len(self.boxls) > 0 and label == 1 and num_tips > 0:
+                #if num_tips == 1 and len(self.boxls) > 0 and label == 1:
                     if len(self.hand_mask) > 0 and self.after_trigger:
                         if color_flag is not None:
                             object_mask = get_objectmask(deepcopy(self.image))
@@ -187,7 +256,8 @@ class temp_tracking():
                         return [temp_result, tips[0], center,3]
                         
                     else:
-                        point = tips[0]
+                        point = max(tips, key=lambda x: np.sqrt((x[0]- center[0])**2 + (x[1] - center[1])**2))
+                        #point = tips[0]
                         length_ls = []
                         for x, y, w, h in self.boxls:
                             length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
@@ -213,7 +283,7 @@ class temp_tracking():
             #  '''
             # one hand and two finger, flag == 2
             # '''
-                elif num_tips == 2 and len(self.boxls) > 0 and radius > 35:
+                elif num_tips == 2 and len(self.boxls) > 0 and label == 2:
                     boxls = deepcopy(self.boxls)
                     length_lsr = []
                     length_lsl = []
@@ -252,14 +322,14 @@ class temp_tracking():
                 # '''
                 # one hand and multi finger, flag == 3
                 # '''
-                elif num_tips > 2 and radius > 35:
+                elif num_tips > 0 and label == 3:
                     if self.trigger:
                         self.hand_mask.append(get_handmask(deepcopy(self.image)))
                         self.draw = draw_img1
                         self.trigger = False
                         return [center,3]
 
-                elif radius < 35 and len(self.boxls) > 0 and len(tips) > 0:
+                elif label == 4 and len(self.boxls) > 0 and len(tips) > 0:
                     point = max(tips, key=lambda x: np.sqrt((x[0]- center[0])**2 + (x[1] - center[1])**2))
                     length_ls = []
                     for x, y, w, h in self.boxls:
@@ -306,15 +376,19 @@ class temp_tracking():
                 ltips = result[0][1]
                 lnum_tips = len(ltips)
                 lradius = result[0][2]
+                lbox = result[0][3]
+                llabel = self.test(lbox, draw_img1) 
 
                 rcenter = result[1][0]
                 rtips = result[1][1]
                 rnum_tips = len(rtips)
                 rradius = result[1][2]
+                rbox = result[1][3]
+                rlabel = self.test(rbox, draw_img1)
                 # '''
                 # two hand is both one finger pointing, ONLY PLACE
                 # '''
-                if set([lnum_tips, rnum_tips]) == set([1,1]) and len(self.boxls) > 0 and np.min([lradius, rradius]) > 30:
+                if set([lnum_tips, rnum_tips]) == set([1,1]) and len(self.boxls) > 0 and set([llabel, rlabel]) == set([1,1]):
                     self.draw = draw_img1
                     
                     '''
@@ -322,17 +396,17 @@ class temp_tracking():
                     '''
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
 
-                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1 and np.min([lradius, rradius]) > 35:
+                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
                     self.draw = draw_img1
-                    if max(set([lnum_tips, rnum_tips])) == 2:
+                    if max(set([lnum_tips, rnum_tips])) == 2 and set([lnum_tips, rnum_tips]) == set([1,2]):
                         return [[tips[0][0], tips[0][1]], 1]
-                    elif max(set([lnum_tips, rnum_tips])) > 2:
+                    elif max(set([lnum_tips, rnum_tips])) > 2 and set([lnum_tips, rnum_tips]) == set([1,3]):
                         return [[tips[0][0], tips[0][1]], 5]
                 
-                elif min(set([lnum_tips, rnum_tips])) == 1 and np.min([lradius, rradius]) < 35:
+                elif min(set([lnum_tips, rnum_tips])) == 1 and set([llabel, rlabel]) == set([1,4]):
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
