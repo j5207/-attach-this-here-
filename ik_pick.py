@@ -108,8 +108,10 @@ class pick_place:
         pre_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.2])
         post_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.2])
         grasp_position = self.define_grasp(position_copy)
+        rospy.loginfo("let's go to the pre location")
         self.move(pre_position)
         rospy.sleep(1)
+        rospy.loginfo("let's do this")
         self.move(grasp_position)
         rospy.sleep(1)
         # if mode == "pick":
@@ -117,6 +119,7 @@ class pick_place:
         # elif mode == "place":
         #     self.gripper_ac.send_goal(0.08)
         # self.gripper_ac.wait_for_result()
+        rospy.loginfo("move out")
         self.move(post_position)
         rospy.sleep(1)
 
