@@ -564,7 +564,7 @@ if __name__ == '__main__':
                 pick_handcenter = None
                 print(pos_N_cmd, "this is published msg")
                 temp.after_trigger = False
-                netsend(pos_N_cmd)
+                #netsend(pos_N_cmd)
                 pub.publish(Int32MultiArray(data=pos_N_cmd))
                 ready_for_place = False
                 color_flag = None
