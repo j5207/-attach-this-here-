@@ -124,7 +124,7 @@ def netsend(msg, localhost="192.168.1.115", port=6868):
 
 class temp_tracking():
     def __init__(self):
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(1)
         self.hand_mask = []
         self.trigger = False
         self.after_trigger = False
@@ -165,7 +165,7 @@ class temp_tracking():
 
     def get_current_frame(self):
         self.cap.release()
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(1)
         OK, origin = self.cap.read()
         if OK:
             rect = camrectify(origin)
@@ -216,7 +216,7 @@ class temp_tracking():
             # '''
             # one hand and one finger, flag == 1
             # '''
-                if len(self.boxls) > 0 and label == 1 and num_tips > 0:
+                if len(self.boxls) > 0 and num_tips > 0 and label == 1:
                 #if num_tips == 1 and len(self.boxls) > 0 and label == 1:
                     if len(self.hand_mask) > 0 and self.after_trigger:
                         if color_flag is not None:
@@ -396,7 +396,7 @@ class temp_tracking():
                     '''
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
 
-                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1:
+                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) < 4:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
@@ -406,7 +406,7 @@ class temp_tracking():
                     elif max(set([lnum_tips, rnum_tips])) > 2 and set([lnum_tips, rnum_tips]) == set([1,3]):
                         return [[tips[0][0], tips[0][1]], 5]
                 
-                elif min(set([lnum_tips, rnum_tips])) == 1 and set([llabel, rlabel]) == set([1,4]):
+                elif min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) == 4:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]

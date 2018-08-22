@@ -31,7 +31,7 @@ import cv2
 
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-SPEED = 4
+SPEED = 3
 
 def coord_converter(x, y):
     # pts1 = np.array([[138, 133], [281, 133], [429, 130], [134, 271], [280, 251], [417, 260], [137, 391], [274, 381]])
@@ -55,7 +55,7 @@ class pick_place:
         print ("Connected to server")
         joint_states = rospy.wait_for_message("joint_states", JointState)
         print(joint_states)
-        joint_states = list(joint_states.position)
+        joint_states = list(deepcopy(joint_states).position)
         del joint_states[-1]
         self.joints_pos_start = np.array(joint_states)
         print ("Init done")
@@ -163,10 +163,10 @@ class pick_place:
 if __name__ == '__main__':
     rospy.init_node('test', anonymous=True)
     task = pick_place()
-    #rospy.spin()
-    pick_x, pick_y = coord_converter(108, 150)
-    place_x, place_y = coord_converter(177, 193)
-    task.pair_exuete([pick_x, pick_y], [place_x, place_y])
+    rospy.spin()
+    #pick_x, pick_y = coord_converter(108, 150)
+    #place_x, place_y = coord_converter(177, 193)
+    #task.pair_exuete([pick_x, pick_y], [place_x, place_y])
     
     
     
