@@ -20,7 +20,15 @@ from std_msgs.msg import String
 # Audio recording parameters
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
+verbals = r'\b(attach|move|make|moves|who|attached|attack|attacked|moved|get|grab|take|what|movie|movies|pic|pics|pick|select)\b'
+objects = r'\b(object|item|objects|items|one|ones|cube)\b'
+places = r'\b(here|there|shear|Kia|cheer|place|location)\b'
+adjs = r'\b(yellow|green|blue|small|big|two|three)\b'
+pointings = r'\b(this|that|these|those)\b'
+quiting = r'\b(exit|quit)\b'
 
+ready_for_pick = False
+ready_for_place = False
 
 class MicrophoneStream(object):
     """Opens a recording stream as a generator yielding the audio chunks."""
@@ -86,57 +94,107 @@ class MicrophoneStream(object):
 
             yield b''.join(data)
 # [END audio_stream]
+def detect_verb(transcript):
+    global verbals
+    if re.search(verbals, transcript, re.I):
+        return True
+    else:
+        return False
 
+def detect_place(transcript):
+    global places
+    if re.search(places, transcript, re.I):
+        return True
+    else:
+        return False
+
+def detect_quit(transcript):
+    global quiting
+    if re.search(quiting, transcript, re.I):
+        return True
+    else:
+        return False
+
+
+def detect_object(transcript):
+    global objects
+    if re.search(objects, transcript, re.I):
+        return True
+    else:
+        return False
+
+
+def detect_adj(transcript):
+    global adjs
+    if re.search(adjs, transcript, re.I):
+        if re.search(r'\b(blue)\b', transcript, re.I):
+            return "blue"
+            # pub_color.publish("blue")
+        elif re.search(r'\b(yellow)\b', transcript, re.I):
+            return "yellow"
+            # pub_color.publish("yellow")
+        elif re.search(r'\b(green)\b', transcript, re.I):
+            return "green"
+            # pub_color.publish("green")
+    else:
+        return None
+
+
+def detect_pointing(transcript):
+    global pointings
+    if re.search(pointings, transcript, re.I):
+        return True
+    else:
+        return False
 
 def listen_print_loop(responses):
+    global ready_for_place
+    global ready_for_pick
     num_chars_printed = 0
     pub_select = rospy.Publisher('/voice_command', Int32, queue_size=1)
     pub_color = rospy.Publisher('/item_color', String, queue_size=20)
     start_time = datetime.datetime.now()
-
     for response in responses:
         current_time = datetime.datetime.now()
-        if (current_time - start_time).seconds > 55:
+        if (current_time - start_time).seconds > 60:
             return True
         if not response.results:
             continue
         result = response.results[0]
+        #print(result)
         if not result.alternatives:
             continue
         transcript = result.alternatives[0].transcript
-        overwrite_chars = ' ' * (num_chars_printed - len(transcript))
 
-        if not result.is_final:
-            sys.stdout.write(transcript + overwrite_chars + '\r')
-            sys.stdout.flush()
+        print(transcript)
+        if detect_quit(transcript):
+            print('Exiting..')
+            pub_select.publish(-1)
+            return False
 
-            num_chars_printed = len(transcript)
+        elif detect_verb(transcript):
+            if not ready_for_place:
+                ready_for_pick = True
+            pub_select.publish(1)
 
-        else:
-            print(transcript + overwrite_chars)
-            if re.search(r'\b(exit|quit)\b', transcript, re.I):
-                print('Exiting..')
-                pub_select.publish(-1)
-                return False
-            elif re.search(r'\b(attach|put|move|make|moves|who|attached|attack|attacked|moved|get)\b', transcript, re.I):
-                print(1)
-                pub_select.publish(1)
-                if re.search(r'\b(blue)\b', transcript, re.I):
-                    print("blue")
-                    pub_color.publish("blue")
-                elif re.search(r'\b(yellow)\b', transcript, re.I):
-                    print("yellow")
-                    pub_color.publish("yellow")
-                elif re.search(r'\b(green)\b', transcript, re.I):
-                    print("green")
-                    pub_color.publish("green")
+        if detect_adj(transcript) is not None and ready_for_pick:
+            pub_color.publish(detect_adj(transcript))
+            print(detect_adj(transcript))
 
-            elif re.search(r'\b(here|there|shear|Kia|cheer|this|that)\b', transcript, re.I):
-                print(2)
-                pub_select.publish(2)
-                return True
+        if (detect_pointing(transcript) or detect_object(transcript)) and ready_for_pick:
+            print(1)
+            pub_select.publish(1)
+            ready_for_pick = False
+            ready_for_place = True
 
-            num_chars_printed = 0
+        if (detect_place(transcript)) and ready_for_place:
+            print(2)
+            pub_select.publish(2)
+            ready_for_place = False
+            ready_for_pick = False
+            return True
+
+        num_chars_printed = 0
 
 
 def main():
@@ -147,7 +205,8 @@ def main():
     config = types.RecognitionConfig(
         encoding=enums.RecognitionConfig.AudioEncoding.LINEAR16,
         sample_rate_hertz=RATE,
-        language_code=language_code)
+        language_code=language_code,
+        enable_word_time_offsets=True)
     streaming_config = types.StreamingRecognitionConfig(
         config=config,
         interim_results=True)
