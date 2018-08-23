@@ -41,6 +41,7 @@ class hand_tracking():
         # cv2.imshow('thresh', thresh)
         
         # cv2.imshow('dgs', mask)
+        self.mask = mask.copy()
         _, contours, _ = cv2.findContours(mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)  
         self.hand_cnt = [] 
         self.only_point = None
@@ -104,6 +105,17 @@ class hand_tracking():
                     max_d=dist
                     pt=(ind_x,ind_y)
         cv2.circle(frame_in,pt,int(max_d),(0,0,255),2)
+        sub_thresh = self.mask[y:y+h, x:x+w].copy()
+        mat = np.argwhere(sub_thresh != 0)
+
+        mat[:, [0, 1]] = mat[:, [1, 0]]
+        mat = np.array(mat).astype(np.float32) #have to convert type for PCA
+        m, e = cv2.PCACompute(mat, mean = np.array([]))
+        center = tuple(m[0])
+        endpoint1 = tuple(m[0] + e[0]*10)
+        #endpoint2 = tuple(m[0] + e[1]*5)
+        self.end = ((int(endpoint1[0] + x), int(endpoint1[1] + y)), (int(center[0] + x), int(center[1] + y)))
+        cv2.circle(frame_in,self.end[0],5,(0,255,255),-1)
         return frame_in,pt,max_d
 
     def mark_fingers(self, frame_in,hull,pt,radius):
@@ -125,7 +137,7 @@ class hand_tracking():
 
         #finger = filter(lambda x: x[0] < cx, finger)
         finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.8 * radius, finger)
-        self.result.append([(cx, cy), finger, radius, self.box])
+        self.result.append([(cx, cy), finger, radius, self.box, self.end])
     
 
         for k in range(len(finger)):

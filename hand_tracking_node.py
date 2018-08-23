@@ -24,7 +24,7 @@ from PIL import Image, ImageTk
 from torchvision import transforms
 from torch.autograd import Variable
 from utils import Net
-
+from collections import deque, Counter
 
 
 distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
@@ -133,7 +133,13 @@ class temp_tracking():
         else:
             self.net = Net()
         self.net.load_state_dict(torch.load(f='/home/intuitivecompting/catkin_ws/src/ur5/ur5_with_gripper/icl_phri_robotiq_control/src/model'))
-    
+        self.last_select = None
+        self.tip_deque = deque(maxlen=50)
+        self.tip_deque1 = deque(maxlen=50)
+        self.tip_deque2 = deque(maxlen=50)
+        self.mode = None
+        self.center = None
+
     def test(self, box ,draw_img):
         net = self.net
         frame = self.image.copy()
@@ -171,6 +177,7 @@ class temp_tracking():
             rect = camrectify(origin)
             warp = warp_img(rect)
             return warp.copy()
+    
 
     def update(self):
         '''
@@ -178,6 +185,7 @@ class temp_tracking():
         '''
         global color_flag
         OK, origin = self.cap.read()
+
         x = None
         if OK:
             rect = camrectify(origin)
@@ -211,8 +219,10 @@ class temp_tracking():
                 tips = result[0][1]
                 radius = result[0][2]
                 box = result[0][3]
+                fake_tip, fake_center = result[0][4]
                 num_tips = len(tips)
                 label = self.test(box, draw_img1)
+                #self.tip_deque.appendleft(tips)
             # '''
             # one hand and one finger, flag == 1
             # '''
@@ -253,10 +263,14 @@ class temp_tracking():
                         print([temp_result, tips[0], center,3])
                         self.hand_mask = []
                         self.after_trigger = False
+                        self.last_select = temp_result
+                        self.mode = 3
+                        self.center = center
                         return [temp_result, tips[0], center,3]
                         
                     else:
                         point = max(tips, key=lambda x: np.sqrt((x[0]- center[0])**2 + (x[1] - center[1])**2))
+                        self.tip_deque.appendleft(point)
                         #point = tips[0]
                         length_ls = []
                         for x, y, w, h in self.boxls:
@@ -276,14 +290,19 @@ class temp_tracking():
                             flag is 1
                             '''
                             self.draw = draw_img1
+                            self.last_select = [(cx, cy)]
+                            self.mode = 1
+                            self.center = center
                             return [[point[0],point[1]],[cx,cy], center,1]
                         else:
                             self.draw = draw_img1
+                            self.mode = 1
+                            self.center = center
                             return [[point[0],point[1]], center,1]
             #  '''
             # one hand and two finger, flag == 2
             # '''
-                elif num_tips == 2 and len(self.boxls) > 0 and label == 2:
+                elif num_tips == 2 and len(self.boxls) > 0 and label != 4:
                     boxls = deepcopy(self.boxls)
                     length_lsr = []
                     length_lsl = []
@@ -316,7 +335,9 @@ class temp_tracking():
                                 flag is 2
                                 '''
                                 self.draw = draw_img1
-                                
+                                self.last_select = [[rx, ry], [lx, ly]]
+                                self.mode = 2
+                                self.center = center
                                 return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], center,2]
 
                 # '''
@@ -327,10 +348,14 @@ class temp_tracking():
                         self.hand_mask.append(get_handmask(deepcopy(self.image)))
                         self.draw = draw_img1
                         self.trigger = False
+                        self.mode = 3
+                        self.center = center
                         return [center,3]
 
                 elif label == 4 and len(self.boxls) > 0 and len(tips) > 0:
-                    point = max(tips, key=lambda x: np.sqrt((x[0]- center[0])**2 + (x[1] - center[1])**2))
+                    #point = max(tips, key=lambda x: np.sqrt((x[0]- center[0])**2 + (x[1] - center[1])**2))
+                    point = fake_tip
+                    center = fake_center
                     length_ls = []
                     for x, y, w, h in self.boxls:
                         length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
@@ -356,7 +381,10 @@ class temp_tracking():
                         flag is 1
                         '''
                         self.draw = draw_img1
-                        return [sub_result, 6]
+                        self.last_select = sub_result
+                        self.mode = 6
+                        self.center = center
+                        return [sub_result, center ,6]
                     else:
                         self.draw = draw_img1
                         return None
@@ -394,23 +422,32 @@ class temp_tracking():
                     '''
                     flag is 4
                     '''
+                    self.mode = 4
+                    self.tip_deque1.appendleft([rtips[0][0], rtips[0][1]])
+                    self.tip_deque2.appendleft([ltips[0][0], ltips[0][1]])
+                    self.center = [list(rcenter), list(lcenter)]
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
 
                 elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) < 4:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
+                    self.tip_deque.appendleft([tips[0][0], tips[0][1]])
                     self.draw = draw_img1
                     if max(set([lnum_tips, rnum_tips])) == 2 and set([lnum_tips, rnum_tips]) == set([1,2]):
+                        self.mode = 1
                         return [[tips[0][0], tips[0][1]], 1]
                     elif max(set([lnum_tips, rnum_tips])) > 2 and set([lnum_tips, rnum_tips]) == set([1,3]):
+                        self.mode = 5
                         return [[tips[0][0], tips[0][1]], 5]
                 
                 elif min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) == 4:
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
+                    self.tip_deque.appendleft([tips[0][0], tips[0][1]])
                     self.draw = draw_img1
+                    self.mode = 1
                     return [[tips[0][0], tips[0][1]], 1]
         self.draw = draw_img1       
 
@@ -464,11 +501,13 @@ if __name__ == '__main__':
     temp = temp_tracking()
     rospy.init_node('hand_tracking_node')
     pub = rospy.Publisher('/target_position', Int32MultiArray, queue_size=20)
-    sub = rospy.Subscriber('/voice_command1', Int32, callback)
+    sub = rospy.Subscriber('/voice_command', Int32, callback)
     sub_for_color = rospy.Subscriber('/item_color', String, colorback)
     ready_for_place = False
     pos_N_cmd = []
     pick_handcenter = None
+    valid = None
+    pre_length = 0
     while True:
         
         
@@ -477,56 +516,77 @@ if __name__ == '__main__':
         if voice_flag == 1 and not ready_for_place:
             temp.trigger = True
             pos = temp.update()
-            if pos:
-                if pos[-1] == 1 and len(pos) == 4:
+            print(temp.mode, "  MODE")
+            if True:
+                if temp.mode == 1:
                     rospy.loginfo("one finger one hand")
-                    pos_N_cmd.append(int(pos[1][0]))
-                    pos_N_cmd.append(int(pos[1][1]))
-                elif pos[-1] == 2:
+                    pos_N_cmd.append(int(temp.last_select[0][0]))
+                    pos_N_cmd.append(int(temp.last_select[0][1]))
+                elif temp.mode == 2:
                     rospy.loginfo("one hand two finger")
-                    pos_N_cmd.append(int(pos[2][0]))
-                    pos_N_cmd.append(int(pos[2][1]))
-                    pos_N_cmd.append(int(pos[3][0]))
-                    pos_N_cmd.append(int(pos[3][1]))
-                elif pos[-1] == 3:
+                    pos_N_cmd.append(int(temp.last_select[0][0]))
+                    pos_N_cmd.append(int(temp.last_select[0][1]))
+                    pos_N_cmd.append(int(temp.last_select[1][0]))
+                    pos_N_cmd.append(int(temp.last_select[1][1]))
+                elif temp.mode == 3:
                     start = time.time()
-                    while time.time() - start < 1.0:
+                    while time.time() - start < 0.5:
                         temp.update()
                         rospy.loginfo("brushing")
                     rospy.loginfo("finish brushing")
                     rospy.loginfo("multifinger one hand previous")
                     rospy.loginfo('not getting new hand mask')
-                elif pos[-1] == 6:
-                    for cx, cy in pos[0]:
+                elif temp.mode == 6:
+                    rospy.loginfo("genral pointing")
+                    for cx, cy in temp.last_select:
                         pos_N_cmd.append(int(cx))
                         pos_N_cmd.append(int(cy))
-                pick_handcenter = pos[-2]
+                pick_handcenter = temp.center
                 temp.trigger = False
                 ready_for_place = True
+                valid = (temp.mode == 3) | (len(pos_N_cmd) > 0)
+                pre_length = len(pos_N_cmd)
+
+                if temp.hand_mask:
+                    rospy.loginfo("heng")
+                    print(valid)
             #==================PLACE====================#
-        elif voice_flag == 2 and ready_for_place:
+        elif voice_flag == 2 and ready_for_place and valid:
+            rospy.loginfo("let's go")
             temp.after_trigger = True
             pos = temp.update()
-            if pos:
-                if pos[-1] == 1:
+            c = Counter(list(temp.tip_deque))
+            point = c.most_common(1)
+            if True:
+                if temp.mode == 1:
                     rospy.loginfo("one finger one hand place")
-                    pos_N_cmd.append(int(pos[0][0]))
-                    pos_N_cmd.append(int(pos[0][1]))
-                elif pos[-1] == 3 and len(pos_N_cmd) == 0:
+                    print(point)
+                    if point[0][1] > 1:
+                        pos_N_cmd.append(int(point[0][0][0]))
+                        pos_N_cmd.append(int(point[0][0][1]))
+                elif temp.mode == 3 and len(pos_N_cmd) == 0:
                     rospy.loginfo("multifinger one hand place")
                     for cx, cy in pos[0]:
                         pos_N_cmd.append(cx)
                         pos_N_cmd.append(cy)
-                    pos_N_cmd.append(pos[1][0])
-                    pos_N_cmd.append(pos[1][1])
+                    print(point)
+                    if point[0][1] > 1:
+                        pos_N_cmd.append(int(point[0][0][0]))
+                        pos_N_cmd.append(int(point[0][0][1]))
                     temp.hand_mask = []
                     temp.trigger = True
-                elif pos[-1] == 4:
+                elif temp.mode == 4:
                     rospy.loginfo("two hand one point place")
-                    ind = pos[-2].index(max(pos[-2], key=lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
-                    pos_N_cmd.append(int(pos[ind][0]))
-                    pos_N_cmd.append(int(pos[ind][1]))
-                elif pos[-1] == 5:
+                    ind = temp.center.index(max(temp.center, key=lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
+                    if ind == 0:
+                        c = Counter(list(temp.tip_deque1))
+                        point = c.most_common(1)
+                    elif ind == 1:
+                        c = Counter(list(temp.tip_deque2))
+                        point = c.most_common(1)
+                    pos_N_cmd.append(int(point[0][0][0]))
+                    pos_N_cmd.append(int(point[0][0][1]))
+                elif temp.mode == 5:
                     rospy.loginfo("two hand one multi one finger place")
                     rospy.sleep(5)
                     image = temp.get_current_frame()
@@ -557,18 +617,24 @@ if __name__ == '__main__':
                         if mask[cy, cx] == 255:
                             pos_N_cmd.append(int(cx))
                             pos_N_cmd.append(int(cy))
-                    pos_N_cmd.append(int(pos[0][0]))
-                    pos_N_cmd.append(int(pos[0][1]))
+                    if point[0][1] > 1:
+                        pos_N_cmd.append(int(point[0][0][0]))
+                        pos_N_cmd.append(int(point[0][0][1]))
                     print("getting bitwise for two hand")
                     temp.hand_mask = []
                 pick_handcenter = None
-                print(pos_N_cmd, "this is published msg")
                 temp.after_trigger = False
                 #netsend(pos_N_cmd)
-                pub.publish(Int32MultiArray(data=pos_N_cmd))
+                if len(pos_N_cmd) != pre_length:
+                    print(pos_N_cmd, "this is published msg")
+                    pub.publish(Int32MultiArray(data=pos_N_cmd))
+                temp.tip_deque.clear()
+                temp.tip_deque1.clear()
+                temp.tip_deque2.clear()
                 ready_for_place = False
                 color_flag = None
                 pos_N_cmd = []
+                temp.mode = 0
         elif voice_flag == -1:
             break
         else:
