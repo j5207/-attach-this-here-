@@ -20,11 +20,12 @@ from std_msgs.msg import String
 # Audio recording parameters
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
-verbals = r'\b(attach|move|make|moves|who|attached|attack|attacked|moved|get|grab|take|what|movie|movies|pic|pics|pick|select)\b'
-objects = r'\b(object|item|objects|items|one|ones|cube)\b'
-places = r'\b(here|there|shear|Kia|cheer|place|location)\b'
+feedback = 0
+verbals = r'\b(attach|move|make|moves|who|attached|attack|attacked|moved|get|grab|take|what|movie|movies|pic|pics|pick|select|put)\b'
+objects = r'\b(object|item|objects|items|one|ones|cube|blocks|block|rick|rock|guys|guy|gay|gays|target|targets|it)\b'
+places = r'\b(here|there|shear|Kia|cheer|place|location|place|hear|position|gear)\b'
 adjs = r'\b(yellow|green|blue|small|big|two|three)\b'
-pointings = r'\b(this|that|these|those)\b'
+pointings = r'\b(this|that|these|those|lease)\b'
 quiting = r'\b(exit|quit)\b'
 
 ready_for_pick = False
@@ -96,6 +97,17 @@ class MicrophoneStream(object):
 # [END audio_stream]
 def detect_verb(transcript):
     global verbals
+    global ready_for_pick
+    global ready_for_place
+    global feedback
+    if feedback == 1:
+        ready_for_pick = False
+        ready_for_place = False
+        feedback = 0
+    elif feedback == 2:
+        ready_for_place = False
+        ready_for_pick = True
+        feedback = 0
     if re.search(verbals, transcript, re.I):
         return True
     else:
@@ -103,6 +115,17 @@ def detect_verb(transcript):
 
 def detect_place(transcript):
     global places
+    global ready_for_pick
+    global ready_for_place
+    global feedback
+    if feedback == 1:
+        ready_for_pick = False
+        ready_for_place = False
+        feedback = 0
+    elif feedback == 2:
+        ready_for_place = False
+        ready_for_pick = True
+        feedback = 0
     if re.search(places, transcript, re.I):
         return True
     else:
@@ -110,6 +133,17 @@ def detect_place(transcript):
 
 def detect_quit(transcript):
     global quiting
+    global ready_for_pick
+    global ready_for_place
+    global feedback
+    if feedback == 1:
+        ready_for_pick = False
+        ready_for_place = False
+        feedback = 0
+    elif feedback == 2:
+        ready_for_place = False
+        ready_for_pick = True
+        feedback = 0
     if re.search(quiting, transcript, re.I):
         return True
     else:
@@ -118,6 +152,17 @@ def detect_quit(transcript):
 
 def detect_object(transcript):
     global objects
+    global ready_for_pick
+    global ready_for_place
+    global feedback
+    if feedback == 1:
+        ready_for_pick = False
+        ready_for_place = False
+        feedback = 0
+    elif feedback == 2:
+        ready_for_place = False
+        ready_for_pick = True
+        feedback = 0
     if re.search(objects, transcript, re.I):
         return True
     else:
@@ -126,6 +171,17 @@ def detect_object(transcript):
 
 def detect_adj(transcript):
     global adjs
+    global ready_for_pick
+    global ready_for_place
+    global feedback
+    if feedback == 1:
+        ready_for_pick = False
+        ready_for_place = False
+        feedback = 0
+    elif feedback == 2:
+        ready_for_place = False
+        ready_for_pick = True
+        feedback = 0
     if re.search(adjs, transcript, re.I):
         if re.search(r'\b(blue)\b', transcript, re.I):
             return "blue"
@@ -142,10 +198,26 @@ def detect_adj(transcript):
 
 def detect_pointing(transcript):
     global pointings
+    global ready_for_pick
+    global ready_for_place
+    global feedback
+    if feedback == 1:
+        ready_for_pick = False
+        ready_for_place = False
+        feedback = 0
+    elif feedback == 2:
+        ready_for_place = False
+        ready_for_pick = True
+        feedback = 0
     if re.search(pointings, transcript, re.I):
         return True
     else:
         return False
+
+def callback(msg):
+    global feedback
+    feedback = msg.data
+
 
 def listen_print_loop(responses):
     global ready_for_place
@@ -153,6 +225,7 @@ def listen_print_loop(responses):
     num_chars_printed = 0
     pub_select = rospy.Publisher('/voice_command', Int32, queue_size=1)
     pub_color = rospy.Publisher('/item_color', String, queue_size=20)
+    #sub = rospy.Subscriber('/feedback', Int32, callback)
     start_time = datetime.datetime.now()
     for response in responses:
         current_time = datetime.datetime.now()
@@ -206,7 +279,10 @@ def main():
         encoding=enums.RecognitionConfig.AudioEncoding.LINEAR16,
         sample_rate_hertz=RATE,
         language_code=language_code,
-        enable_word_time_offsets=True)
+        speech_contexts = [{"phrases":["attach","move","make","get","grab","take","pick","select","put","object","item","objects",
+                                       "items","one","ones","cube","cubes","blocks","block","guys","guy","here","there","place",
+                                       "location","position","yellow","green","blue","this","that","these","those","quit","exit","targets","target",
+                                       "it"]}])
     streaming_config = types.StreamingRecognitionConfig(
         config=config,
         interim_results=True)
