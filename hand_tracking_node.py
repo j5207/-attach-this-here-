@@ -33,7 +33,7 @@ color_flag = None
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[268,76],[500,58],[272,252],[523,237]])
+    pts1 = np.float32([[108,35],[622,8],[127,252],[617,244]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
@@ -124,7 +124,7 @@ def netsend(msg, localhost="192.168.1.115", port=6868):
 
 class temp_tracking():
     def __init__(self):
-        self.cap = cv2.VideoCapture(1)
+        self.cap = cv2.VideoCapture(0)
         self.hand_mask = []
         self.trigger = False
         self.after_trigger = False
@@ -134,9 +134,9 @@ class temp_tracking():
             self.net = Net()
         self.net.load_state_dict(torch.load(f='/home/intuitivecompting/catkin_ws/src/ur5/ur5_with_gripper/icl_phri_robotiq_control/src/model'))
         self.last_select = None
-        self.tip_deque = deque(maxlen=50)
-        self.tip_deque1 = deque(maxlen=50)
-        self.tip_deque2 = deque(maxlen=50)
+        self.tip_deque = deque(maxlen=20)
+        self.tip_deque1 = deque(maxlen=20)
+        self.tip_deque2 = deque(maxlen=20)
         self.mode = None
         self.center = None
 
@@ -189,6 +189,8 @@ class temp_tracking():
         x = None
         if OK:
             rect = camrectify(origin)
+            rect = cv2.flip(rect,0)
+            rect = cv2.flip(rect,1)
             warp = warp_img(rect)
             thresh = get_objectmask(warp)
             cv2.imshow('thresh', thresh)
@@ -211,6 +213,10 @@ class temp_tracking():
             
             result = hand_tracking(warp_img(origin), cache(10), cache(10)).get_result()
             num_hand_view = len(result)
+            # if num_hand_view == 0:
+            #     self.tip_deque.clear()
+            #     self.tip_deque1.clear()
+            #     self.tip_deque2.clear()
             '''
             one hand in the view
             '''
@@ -227,6 +233,7 @@ class temp_tracking():
             # one hand and one finger, flag == 1
             # '''
                 if len(self.boxls) > 0 and num_tips > 0 and label == 1:
+                    #rospy.loginfo("mask, trigger:{},{}".format(len(self.hand_mask), self.after_trigger))
                 #if num_tips == 1 and len(self.boxls) > 0 and label == 1:
                     if len(self.hand_mask) > 0 and self.after_trigger:
                         if color_flag is not None:
@@ -259,7 +266,7 @@ class temp_tracking():
                         multihand
                         '''
                         self.draw = draw_img1
-                        print("getting bitwise and")
+                        print("getting bitwise and when there is one finger after palm")
                         print([temp_result, tips[0], center,3])
                         self.hand_mask = []
                         self.after_trigger = False
@@ -269,6 +276,7 @@ class temp_tracking():
                         return [temp_result, tips[0], center,3]
                         
                     else:
+                        #rospy.loginfo("single pointing")
                         point = max(tips, key=lambda x: np.sqrt((x[0]- center[0])**2 + (x[1] - center[1])**2))
                         self.tip_deque.appendleft(point)
                         #point = tips[0]
@@ -346,7 +354,9 @@ class temp_tracking():
                 elif num_tips > 0 and label == 3:
                     if self.trigger:
                         self.hand_mask.append(get_handmask(deepcopy(self.image)))
+                        rospy.loginfo("get brushed")
                         self.draw = draw_img1
+                        # trigger???
                         self.trigger = False
                         self.mode = 3
                         self.center = center
@@ -423,8 +433,8 @@ class temp_tracking():
                     flag is 4
                     '''
                     self.mode = 4
-                    self.tip_deque1.appendleft([rtips[0][0], rtips[0][1]])
-                    self.tip_deque2.appendleft([ltips[0][0], ltips[0][1]])
+                    self.tip_deque1.appendleft((rtips[0][0], rtips[0][1]))
+                    self.tip_deque2.appendleft((ltips[0][0], ltips[0][1]))
                     self.center = [list(rcenter), list(lcenter)]
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
 
@@ -432,7 +442,7 @@ class temp_tracking():
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
-                    self.tip_deque.appendleft([tips[0][0], tips[0][1]])
+                    self.tip_deque.appendleft((tips[0][0], tips[0][1]))
                     self.draw = draw_img1
                     if max(set([lnum_tips, rnum_tips])) == 2 and set([lnum_tips, rnum_tips]) == set([1,2]):
                         self.mode = 1
@@ -445,7 +455,7 @@ class temp_tracking():
                     sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
                     center = sub_result[0][0]
                     tips = sub_result[0][1]
-                    self.tip_deque.appendleft([tips[0][0], tips[0][1]])
+                    self.tip_deque.appendleft((tips[0][0], tips[0][1]))
                     self.draw = draw_img1
                     self.mode = 1
                     return [[tips[0][0], tips[0][1]], 1]
@@ -500,7 +510,7 @@ def colorback(msg):
 if __name__ == '__main__':
     temp = temp_tracking()
     rospy.init_node('hand_tracking_node')
-    pub = rospy.Publisher('/target_position', Int32MultiArray, queue_size=20)
+    pub = rospy.Publisher('/target_position', Int32MultiArray, queue_size=1)
     sub = rospy.Subscriber('/voice_command', Int32, callback)
     sub_for_color = rospy.Subscriber('/item_color', String, colorback)
     ready_for_place = False
@@ -516,13 +526,13 @@ if __name__ == '__main__':
         if voice_flag == 1 and not ready_for_place:
             temp.trigger = True
             pos = temp.update()
-            print(temp.mode, "  MODE")
+            print(temp.last_select)
             if True:
-                if temp.mode == 1:
+                if temp.mode == 1 and temp.last_select:
                     rospy.loginfo("one finger one hand")
                     pos_N_cmd.append(int(temp.last_select[0][0]))
                     pos_N_cmd.append(int(temp.last_select[0][1]))
-                elif temp.mode == 2:
+                elif temp.mode == 2 and temp.last_select:
                     rospy.loginfo("one hand two finger")
                     pos_N_cmd.append(int(temp.last_select[0][0]))
                     pos_N_cmd.append(int(temp.last_select[0][1]))
@@ -536,37 +546,35 @@ if __name__ == '__main__':
                     rospy.loginfo("finish brushing")
                     rospy.loginfo("multifinger one hand previous")
                     rospy.loginfo('not getting new hand mask')
-                elif temp.mode == 6:
-                    rospy.loginfo("genral pointing")
+                elif temp.mode == 6 and temp.last_select:
+                    rospy.loginfo("general pointing")
                     for cx, cy in temp.last_select:
                         pos_N_cmd.append(int(cx))
                         pos_N_cmd.append(int(cy))
                 pick_handcenter = temp.center
                 temp.trigger = False
                 ready_for_place = True
-                valid = (temp.mode == 3) | (len(pos_N_cmd) > 0)
                 pre_length = len(pos_N_cmd)
-
-                if temp.hand_mask:
-                    rospy.loginfo("heng")
-                    print(valid)
             #==================PLACE====================#
-        elif voice_flag == 2 and ready_for_place and valid:
-            rospy.loginfo("let's go")
+        elif voice_flag == 2 and ready_for_place:
+            rospy.loginfo("let's go")          
             temp.after_trigger = True
             pos = temp.update()
-            c = Counter(list(temp.tip_deque))
+            print(temp.tip_deque, "deque1111")
+            c = Counter(tuple(temp.tip_deque))
             point = c.most_common(1)
-            if True:
+
+            if len(point) > 0:
+                rospy.loginfo("current is None")
                 if temp.mode == 1:
                     rospy.loginfo("one finger one hand place")
-                    print(point)
+                    
                     if point[0][1] > 1:
                         pos_N_cmd.append(int(point[0][0][0]))
                         pos_N_cmd.append(int(point[0][0][1]))
                 elif temp.mode == 3 and len(pos_N_cmd) == 0:
                     rospy.loginfo("multifinger one hand place")
-                    for cx, cy in pos[0]:
+                    for cx, cy in temp.last_select:
                         pos_N_cmd.append(cx)
                         pos_N_cmd.append(cy)
                     print(point)
@@ -577,6 +585,7 @@ if __name__ == '__main__':
                     temp.trigger = True
                 elif temp.mode == 4:
                     rospy.loginfo("two hand one point place")
+                    print(temp.center)
                     ind = temp.center.index(max(temp.center, key=lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
                     if ind == 0:
                         c = Counter(list(temp.tip_deque1))
@@ -635,6 +644,7 @@ if __name__ == '__main__':
                 color_flag = None
                 pos_N_cmd = []
                 temp.mode = 0
+                temp.last_select = None
         elif voice_flag == -1:
             break
         else:
