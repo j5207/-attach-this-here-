@@ -33,7 +33,7 @@ color_flag = None
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[108,35],[622,8],[127,252],[617,244]])
+    pts1 = np.float32([[169,57],[559,69],[168,281],[537,300]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
@@ -188,9 +188,10 @@ class temp_tracking():
 
         x = None
         if OK:
+            #print(self.mode)
             rect = camrectify(origin)
-            rect = cv2.flip(rect,0)
-            rect = cv2.flip(rect,1)
+            # rect = cv2.flip(rect,0)
+            # rect = cv2.flip(rect,1)
             warp = warp_img(rect)
             thresh = get_objectmask(warp)
             cv2.imshow('thresh', thresh)
@@ -211,12 +212,52 @@ class temp_tracking():
             #         x,y,w,h = cv2.boundingRect(contour)
             #         self.handls.append([x, y, w, h])
             
-            result = hand_tracking(warp_img(origin), cache(10), cache(10)).get_result()
+            result = hand_tracking(warp_img(rect), cache(10), cache(10)).get_result()
             num_hand_view = len(result)
             # if num_hand_view == 0:
             #     self.tip_deque.clear()
             #     self.tip_deque1.clear()
             #     self.tip_deque2.clear()
+            if num_hand_view == 0:
+                if len(self.hand_mask) > 0 and self.after_trigger:
+                    if color_flag is not None:
+                        object_mask = get_objectmask(deepcopy(self.image))
+                        if color_flag == "yellow":
+                            color_mask = get_yellow_objectmask(deepcopy(self.image))
+                        elif color_flag == "blue":
+                            color_mask = get_blue_objectmask(deepcopy(self.image))
+                        # elif color_flag == "green":
+                        #     color_mask = get_green_objectmask(deepcopy(self.image))
+                        mask = self.hand_mask[0]
+                        for i in range(1, len(self.hand_mask), 1):
+                            mask = cv2.bitwise_or(self.hand_mask[i],mask)                     
+                        mask = cv2.bitwise_and(mask,color_mask)
+                        temp_result = []
+                        for cx, cy in self.surfacels:
+                            if mask[cy, cx] == 255:
+                                temp_result.append((cx, cy))
+                    else:
+                        object_mask = get_objectmask(deepcopy(self.image))
+                        mask = self.hand_mask[0]
+                        for i in range(1, len(self.hand_mask), 1):
+                            mask = cv2.bitwise_or(self.hand_mask[i],mask)                     
+                        mask = cv2.bitwise_and(mask,object_mask)
+                        temp_result = []
+                        for cx, cy in self.surfacels:
+                            if mask[cy, cx] == 255:
+                                temp_result.append((cx, cy))
+                    '''
+                    multihand
+                    '''
+                    self.draw = draw_img1
+                    print("getting bitwise and when there is one finger after palm")
+                    #print([temp_result, tips[0], center,3])
+                    #self.hand_mask = []
+                    #self.after_trigger = False
+                    self.last_select = temp_result
+                    self.mode = 3
+                   # self.center = center
+                    #return [temp_result, tips[0], center,3]
             '''
             one hand in the view
             '''
@@ -232,50 +273,51 @@ class temp_tracking():
             # '''
             # one hand and one finger, flag == 1
             # '''
-                if len(self.boxls) > 0 and num_tips > 0 and label == 1:
+                
                     #rospy.loginfo("mask, trigger:{},{}".format(len(self.hand_mask), self.after_trigger))
                 #if num_tips == 1 and len(self.boxls) > 0 and label == 1:
-                    if len(self.hand_mask) > 0 and self.after_trigger:
-                        if color_flag is not None:
-                            object_mask = get_objectmask(deepcopy(self.image))
-                            if color_flag == "yellow":
-                                color_mask = get_yellow_objectmask(deepcopy(self.image))
-                            elif color_flag == "blue":
-                                color_mask = get_blue_objectmask(deepcopy(self.image))
-                            # elif color_flag == "green":
-                            #     color_mask = get_green_objectmask(deepcopy(self.image))
-                            mask = self.hand_mask[0]
-                            for i in range(1, len(self.hand_mask), 1):
-                                mask = cv2.bitwise_or(self.hand_mask[i],mask)                     
-                            mask = cv2.bitwise_and(mask,color_mask)
-                            temp_result = []
-                            for cx, cy in self.surfacels:
-                                if mask[cy, cx] == 255:
-                                    temp_result.append((cx, cy))
-                        else:
-                            object_mask = get_objectmask(deepcopy(self.image))
-                            mask = self.hand_mask[0]
-                            for i in range(1, len(self.hand_mask), 1):
-                                mask = cv2.bitwise_or(self.hand_mask[i],mask)                     
-                            mask = cv2.bitwise_and(mask,object_mask)
-                            temp_result = []
-                            for cx, cy in self.surfacels:
-                                if mask[cy, cx] == 255:
-                                    temp_result.append((cx, cy))
-                        '''
-                        multihand
-                        '''
-                        self.draw = draw_img1
-                        print("getting bitwise and when there is one finger after palm")
-                        print([temp_result, tips[0], center,3])
-                        self.hand_mask = []
-                        self.after_trigger = False
-                        self.last_select = temp_result
-                        self.mode = 3
-                        self.center = center
-                        return [temp_result, tips[0], center,3]
-                        
+                if len(self.hand_mask) > 0 and self.after_trigger:
+                    if color_flag is not None:
+                        object_mask = get_objectmask(deepcopy(self.image))
+                        if color_flag == "yellow":
+                            color_mask = get_yellow_objectmask(deepcopy(self.image))
+                        elif color_flag == "blue":
+                            color_mask = get_blue_objectmask(deepcopy(self.image))
+                        # elif color_flag == "green":
+                        #     color_mask = get_green_objectmask(deepcopy(self.image))
+                        mask = self.hand_mask[0]
+                        for i in range(1, len(self.hand_mask), 1):
+                            mask = cv2.bitwise_or(self.hand_mask[i],mask)                     
+                        mask = cv2.bitwise_and(mask,color_mask)
+                        temp_result = []
+                        for cx, cy in self.surfacels:
+                            if mask[cy, cx] == 255:
+                                temp_result.append((cx, cy))
                     else:
+                        object_mask = get_objectmask(deepcopy(self.image))
+                        mask = self.hand_mask[0]
+                        for i in range(1, len(self.hand_mask), 1):
+                            mask = cv2.bitwise_or(self.hand_mask[i],mask)                     
+                        mask = cv2.bitwise_and(mask,object_mask)
+                        temp_result = []
+                        for cx, cy in self.surfacels:
+                            if mask[cy, cx] == 255:
+                                temp_result.append((cx, cy))
+                    '''
+                    multihand
+                    '''
+                    self.draw = draw_img1
+                    print("getting bitwise and when there is one finger after palm")
+                    print([temp_result, tips[0], center,3])
+                    #self.hand_mask = []
+                    #self.after_trigger = False
+                    self.last_select = temp_result
+                    self.mode = 3
+                    self.center = center
+                    return [temp_result, tips[0], center,3]
+
+                if len(self.boxls) > 0 and num_tips == 1 and label != 4:        
+                    if len(self.hand_mask) == 0 or not self.after_trigger:
                         #rospy.loginfo("single pointing")
                         point = max(tips, key=lambda x: np.sqrt((x[0]- center[0])**2 + (x[1] - center[1])**2))
                         self.tip_deque.appendleft(point)
@@ -291,7 +333,7 @@ class temp_tracking():
                             x, y, w, h = self.boxls[ind]
                             cx, cy = self.surfacels[ind]
                             cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                            cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                            cv2.circle(draw_img1, (int(x+w/2), int(y+h/2)), 5, (0, 0, 255), -1)
                             cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                             
                             '''
@@ -301,7 +343,7 @@ class temp_tracking():
                             self.last_select = [(cx, cy)]
                             self.mode = 1
                             self.center = center
-                            return [[point[0],point[1]],[cx,cy], center,1]
+                            return [[point[0],point[1]],(int(x+w/2), int(y+h/2)), center,1]
                         else:
                             self.draw = draw_img1
                             self.mode = 1
@@ -322,8 +364,9 @@ class temp_tracking():
                     if len(length_lsr) > 0:
                         rx,ry = min(length_lsr, key=lambda x: distant((x[1][0], x[1][1]), (rpoint[0], rpoint[1])))[1]
                         rind = test_insdie((rx, ry), self.boxls)
-                        rx, ry = self.surfacels[rind]
+                        #rx, ry = self.surfacels[rind]
                         x, y, w, h = self.boxls[rind]
+                        rx, ry = int(x+w/2), int(y+h/2)
                         del boxls[rind]
                         cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
                         cv2.putText(draw_img1,"pointed_right",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
@@ -335,8 +378,9 @@ class temp_tracking():
                             if len(length_lsl) > 0:
                                 lx,ly = min(length_lsl, key=lambda x: distant((x[1][0], x[1][1]), (lpoint[0], lpoint[1])))[1]
                                 lind = test_insdie((lx, ly), boxls)
-                                lx, ly = self.surfacels[lind]
+                                #lx, ly = self.surfacels[lind]
                                 x, y, w, h = boxls[lind]
+                                lx, ly = int(x+w/2), int(y+h/2)
                                 cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
                                 cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                                 '''
@@ -382,9 +426,9 @@ class temp_tracking():
                             ind = test_insdie((x, y), self.boxls)
                             x, y, w, h = self.boxls[ind]
                             cx, cy = self.surfacels[ind]
-                            sub_result.append((cx, cy))
+                            sub_result.append((int(x+w/2), int(y+h/2)))
                             cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                            cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                            cv2.circle(draw_img1, (int(x+w/2), int(y+h/2)), 5, (0, 0, 255), -1)
                             cv2.putText(draw_img1,"general",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                         
                         '''
@@ -472,25 +516,26 @@ class temp_tracking():
                     M = cv2.moments(contour)
                     cx = int(M['m10']/M['m00'])
                     cy = int(M['m01']/M['m00'])
+                    self.surfacels.append((cx, cy))
                     x,y,w,h = cv2.boundingRect(contour)
                     self.boxls.append((x, y, w, h))
         if len(self.boxls) > 0:
             boxls_arr = np.array(self.boxls)
             self.boxls = boxls_arr[boxls_arr[:, 0].argsort()].tolist()
-        for x, y, w, h in self.boxls:
-            sub = image[y:y+h, x:x+w, :]
-            hsv = cv2.cvtColor(sub,cv2.COLOR_BGR2HSV)
-            top_mask = cv2.inRange(hsv, Top_low, Top_high)
-            (_,top_contours, object_hierarchy)=cv2.findContours(top_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-            max_area = 0
-            for i , contour in enumerate(top_contours):
-                area = cv2.contourArea(contour)
-                if area>max_area and object_hierarchy[0, i, 3] == -1:					
-                    M = cv2.moments(contour)
-                    cx = int(M['m10']/M['m00'])
-                    cy = int(M['m01']/M['m00'])
-                    max_area = area
-            self.surfacels.append((cx+x, cy+y))
+        # for x, y, w, h in self.boxls:
+        #     sub = image[y:y+h, x:x+w, :]
+        #     hsv = cv2.cvtColor(sub,cv2.COLOR_BGR2HSV)
+        #     top_mask = cv2.inRange(hsv, Top_low, Top_high)
+        #     (_,top_contours, object_hierarchy)=cv2.findContours(top_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        #     max_area = 0
+        #     for i , contour in enumerate(top_contours):
+        #         area = cv2.contourArea(contour)
+        #         if area>max_area and object_hierarchy[0, i, 3] == -1:					
+        #             M = cv2.moments(contour)
+        #             cx = int(M['m10']/M['m00'])
+        #             cy = int(M['m01']/M['m00'])
+        #             max_area = area
+        #     self.surfacels.append((cx+x, cy+y))
 
     
 
@@ -539,10 +584,10 @@ if __name__ == '__main__':
                     pos_N_cmd.append(int(temp.last_select[1][0]))
                     pos_N_cmd.append(int(temp.last_select[1][1]))
                 elif temp.mode == 3:
-                    start = time.time()
-                    while time.time() - start < 0.5:
-                        temp.update()
-                        rospy.loginfo("brushing")
+                    # start = time.time()
+                    # while time.time() - start < 0.5:
+                    #     temp.update()
+                    #     rospy.loginfo("brushing")
                     rospy.loginfo("finish brushing")
                     rospy.loginfo("multifinger one hand previous")
                     rospy.loginfo('not getting new hand mask')

@@ -7,6 +7,7 @@ from constant import Hand_low, Hand_high
 from utils import cache
 import math
 
+distant = lambda (x1, y1), (x2, y2) : math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 Finger_distanct = 20
 
 class hand_tracking():
@@ -14,13 +15,13 @@ class hand_tracking():
         self.memory1 = memory1
         self.memory2 = memory2
         self.flag = False
-
+        self.cnt_pts = []
         frame = image.copy()
         self.radius_thresh = 0.05
         self.result = []
         #_, frame = cap.read()
         #frame = self.warp(frame)
-        blur = cv2.blur(frame,(11,11))
+        blur = cv2.blur(frame,(5,5))
         hsv = cv2.cvtColor(blur,cv2.COLOR_BGR2HSV)
         kernal = np.ones((7 ,7), "uint8")
         mask = cv2.inRange(hsv, Hand_low, Hand_high)
@@ -116,6 +117,10 @@ class hand_tracking():
         #endpoint2 = tuple(m[0] + e[1]*5)
         self.end = ((int(endpoint1[0] + x), int(endpoint1[1] + y)), (int(center[0] + x), int(center[1] + y)))
         cv2.circle(frame_in,self.end[0],5,(0,255,255),-1)
+        #print(len(cont))
+        for [cnt_pts] in cont:
+            self.cnt_pts.append(distant(cnt_pts, pt))
+        #print(self.cnt_pts)
         return frame_in,pt,max_d
 
     def mark_fingers(self, frame_in,hull,pt,radius):
@@ -135,8 +140,8 @@ class hand_tracking():
                     finger.append((hull[-i][0][0],hull[-i][0][1]))
                 j=j+1
 
-        #finger = filter(lambda x: x[0] < cx, finger)
-        finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.8 * radius, finger)
+        finger = filter(lambda x: x[1] < cy, finger)
+        finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.7 * radius, finger)
         self.result.append([(cx, cy), finger, radius, self.box, self.end])
     
 
@@ -146,7 +151,7 @@ class hand_tracking():
         return frame_in,finger
 def warp(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[268,76],[500,58],[272,252],[523,237]])
+    pts1 = np.float32([[169,57],[559,69],[168,281],[537,300]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
