@@ -139,6 +139,8 @@ class temp_tracking():
         self.tip_deque2 = deque(maxlen=20)
         self.mode = None
         self.center = None
+        self.two_hand_mode = None
+        self.pick_center = None
 
     def test(self, box ,draw_img):
         net = self.net
@@ -313,7 +315,7 @@ class temp_tracking():
                     #self.after_trigger = False
                     self.last_select = temp_result
                     self.mode = 3
-                    self.center = center
+                    #self.center = center
                     return [temp_result, tips[0], center,3]
 
                 if len(self.boxls) > 0 and num_tips == 1 and label != 4:        
@@ -342,12 +344,12 @@ class temp_tracking():
                             self.draw = draw_img1
                             self.last_select = [(cx, cy)]
                             self.mode = 1
-                            self.center = center
+                            self.pick_center = center
                             return [[point[0],point[1]],(cx, cy), center,1]
                         else:
                             self.draw = draw_img1
                             self.mode = 1
-                            self.center = center
+                            self.pick_center = center
                             return [[point[0],point[1]], center,1]
             #  '''
             # one hand and two finger, flag == 2
@@ -389,7 +391,7 @@ class temp_tracking():
                                 self.draw = draw_img1
                                 self.last_select = [[rx, ry], [lx, ly]]
                                 self.mode = 2
-                                self.center = center
+                                #self.center = center
                                 return [[tips[0][0], tips[0][1]], [tips[1][0], tips[1][1]], [rx, ry], [lx, ly], center,2]
 
                 # '''
@@ -403,7 +405,7 @@ class temp_tracking():
                         # trigger???
                         self.trigger = False
                         self.mode = 3
-                        self.center = center
+                        #self.center = center
                         return [center,3]
 
                 elif label == 4 and len(self.boxls) > 0 and len(tips) > 0:
@@ -437,7 +439,7 @@ class temp_tracking():
                         self.draw = draw_img1
                         self.last_select = sub_result
                         self.mode = 6
-                        self.center = center
+                        #self.center = center
                         return [sub_result, center ,6]
                     else:
                         self.draw = draw_img1
@@ -477,9 +479,10 @@ class temp_tracking():
                     flag is 4
                     '''
                     self.mode = 4
-                    self.tip_deque1.appendleft((rtips[0][0], rtips[0][1]))
-                    self.tip_deque2.appendleft((ltips[0][0], ltips[0][1]))
-                    self.center = [list(rcenter), list(lcenter)]
+                    self.two_hand_mode =4
+                    self.tip_deque1.appendleft((ltips[0][0], ltips[0][1]))
+                    self.tip_deque2.appendleft((rtips[0][0], rtips[0][1]))
+                    self.center = [list(lcenter), list(rcenter)]
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
 
                 elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) < 4:
@@ -488,11 +491,14 @@ class temp_tracking():
                     tips = sub_result[0][1]
                     self.tip_deque.appendleft((tips[0][0], tips[0][1]))
                     self.draw = draw_img1
+                    
                     if max(set([lnum_tips, rnum_tips])) == 2 and set([lnum_tips, rnum_tips]) == set([1,2]):
                         self.mode = 1
+                        self.two_hand_mode = 1
                         return [[tips[0][0], tips[0][1]], 1]
-                    elif set([lnum_tips, rnum_tips]) == set([1,3]):
+                    else:
                         self.mode = 5
+                        self.two_hand_mode = 5
                         return [[tips[0][0], tips[0][1]], 5]
                 
                 elif min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) == 4:
@@ -502,6 +508,8 @@ class temp_tracking():
                     self.tip_deque.appendleft((tips[0][0], tips[0][1]))
                     self.draw = draw_img1
                     self.mode = 1
+                    self.two_hand_mode = 1
+                    #rospy.loginfo("jdjdjdjjs")
                     return [[tips[0][0], tips[0][1]], 1]
         self.draw = draw_img1       
 
@@ -599,7 +607,8 @@ if __name__ == '__main__':
                     for cx, cy in temp.last_select:
                         pos_N_cmd.append(int(cx))
                         pos_N_cmd.append(int(cy))
-                pick_handcenter = temp.center
+                pick_handcenter = temp.pick_center
+                temp.pick_center = None
                 temp.trigger = False
                 ready_for_place = True
                 pre_length = len(pos_N_cmd)
@@ -608,13 +617,17 @@ if __name__ == '__main__':
             rospy.loginfo("let's go")          
             temp.after_trigger = True
             pos = temp.update()
-            print(temp.tip_deque, "deque1111")
+            #print(temp.tip_deque, "deque1111")
             c = Counter(tuple(temp.tip_deque))
             point = c.most_common(1)
+            if point[0][1] < 1:
+                rospy.logwarn("not enoght deque point")
 
             if len(point) > 0:
                 rospy.loginfo("current is None")
-                if temp.mode == 1:
+                rospy.loginfo("current mode: {}".format(temp.mode))
+                rospy.loginfo("current two hand mode: {}".format(temp.two_hand_mode))
+                if temp.mode == 1 and temp.two_hand_mode != 4:
                     rospy.loginfo("one finger one hand place")
                     
                     if point[0][1] > 1:
@@ -631,18 +644,8 @@ if __name__ == '__main__':
                         pos_N_cmd.append(int(point[0][0][1]))
                     temp.hand_mask = []
                     temp.trigger = True
-                elif temp.mode == 4:
-                    rospy.loginfo("two hand one point place")
-                    print(temp.center)
-                    ind = temp.center.index(max(temp.center, key=lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
-                    if ind == 0:
-                        c = Counter(list(temp.tip_deque1))
-                        point = c.most_common(1)
-                    elif ind == 1:
-                        c = Counter(list(temp.tip_deque2))
-                        point = c.most_common(1)
-                    pos_N_cmd.append(int(point[0][0][0]))
-                    pos_N_cmd.append(int(point[0][0][1]))
+                
+
                 elif temp.mode == 5:
                     rospy.loginfo("two hand one multi one finger place")
                     rospy.sleep(5)
@@ -679,20 +682,66 @@ if __name__ == '__main__':
                         pos_N_cmd.append(int(point[0][0][1]))
                     print("getting bitwise for two hand")
                     temp.hand_mask = []
+                
+                elif temp.mode == 4 or temp.two_hand_mode == 4:
+                    rospy.loginfo("two hand one point place")
+                    print("center", temp.center)
+                    print("previous center", pick_handcenter)
+                    if pos:
+                        ind = pos[-2].index(max(pos[-2], key=lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
+                        pos_N_cmd.append(int(pos[ind][0]))
+                        pos_N_cmd.append(int(pos[ind][1]))
+                        rospy.loginfo("it is in the view")
+                    else:
+                        rospy.loginfo("it is not in the view")
+                        ind = temp.center.index(max(temp.center, key=lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
+                        if ind == 0:
+                            c = Counter(list(temp.tip_deque1))
+                            point = c.most_common(1)
+                        elif ind == 1:
+                            c = Counter(list(temp.tip_deque2))
+                            point = c.most_common(1)
+                        # rospy.loginfo("it is not in the view")
+                        # ind = temp.center.index(max(temp.center, key=lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
+
+                        # c1 = Counter(list(temp.tip_deque1))
+                        # point1 = c1.most_common(1)
+                        # c2 = Counter(list(temp.tip_deque2))
+                        # point2 = c2.most_common(1)
+                        # if point1[0][1] > point2[0][1]:
+                        #     point = point2
+                        # elif point1[0][1] < point2[0][1]:
+                        #     point = point1
+                        # else:
+                        #     ind = temp.center.index(max(temp.center, key=lambda x: sqrt((x[0] - pick_handcenter[0])**2 + (x[1] - pick_handcenter[1])**2)))
+                        #     if ind == 0:
+                        #         c = Counter(list(temp.tip_deque1))
+                        #         point = c.most_common(1)
+                        #     elif ind == 1:
+                        #         c = Counter(list(temp.tip_deque2))
+                        #         point = c.most_common(1)
+                            
+
+                        pos_N_cmd.append(int(point[0][0][0]))
+                        pos_N_cmd.append(int(point[0][0][1]))
                 pick_handcenter = None
                 temp.after_trigger = False
                 #netsend(pos_N_cmd)
-                if len(pos_N_cmd) != pre_length:
+                if len(pos_N_cmd) != pre_length and len(pos_N_cmd) >= 4:
                     print(pos_N_cmd, "this is published msg")
                     pub.publish(Int32MultiArray(data=pos_N_cmd))
+                else:
+                    rospy.logwarn("fail to publish, need to have place location")
                 temp.tip_deque.clear()
                 temp.tip_deque1.clear()
                 temp.tip_deque2.clear()
                 ready_for_place = False
+                temp.two_hand_mode = None
                 color_flag = None
                 pos_N_cmd = []
                 temp.mode = 0
                 temp.last_select = None
+                temp.center = None
         elif voice_flag == -1:
             break
         else:
