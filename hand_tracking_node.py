@@ -171,7 +171,7 @@ class temp_tracking():
 
     def get_current_frame(self):
         self.cap.release()
-        self.cap = cv2.VideoCapture(1)
+        self.cap = cv2.VideoCapture(0)
         OK, origin = self.cap.read()
         if OK:
             rect = camrectify(origin)
@@ -333,7 +333,7 @@ class temp_tracking():
                             x, y, w, h = self.boxls[ind]
                             cx, cy = self.surfacels[ind]
                             cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                            cv2.circle(draw_img1, (int(x+w/2), int(y+h/2)), 5, (0, 0, 255), -1)
+                            cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
                             cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                             
                             '''
@@ -343,7 +343,7 @@ class temp_tracking():
                             self.last_select = [(cx, cy)]
                             self.mode = 1
                             self.center = center
-                            return [[point[0],point[1]],(int(x+w/2), int(y+h/2)), center,1]
+                            return [[point[0],point[1]],(cx, cy), center,1]
                         else:
                             self.draw = draw_img1
                             self.mode = 1
@@ -364,9 +364,9 @@ class temp_tracking():
                     if len(length_lsr) > 0:
                         rx,ry = min(length_lsr, key=lambda x: distant((x[1][0], x[1][1]), (rpoint[0], rpoint[1])))[1]
                         rind = test_insdie((rx, ry), self.boxls)
-                        #rx, ry = self.surfacels[rind]
+                        rx, ry = self.surfacels[rind]
                         x, y, w, h = self.boxls[rind]
-                        rx, ry = int(x+w/2), int(y+h/2)
+                        #rx, ry = int(x+w/2), int(y+h/2)
                         del boxls[rind]
                         cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
                         cv2.putText(draw_img1,"pointed_right",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
@@ -378,9 +378,9 @@ class temp_tracking():
                             if len(length_lsl) > 0:
                                 lx,ly = min(length_lsl, key=lambda x: distant((x[1][0], x[1][1]), (lpoint[0], lpoint[1])))[1]
                                 lind = test_insdie((lx, ly), boxls)
-                                #lx, ly = self.surfacels[lind]
+                                lx, ly = self.surfacels[lind]
                                 x, y, w, h = boxls[lind]
-                                lx, ly = int(x+w/2), int(y+h/2)
+                                #lx, ly = int(x+w/2), int(y+h/2)
                                 cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
                                 cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                                 '''
@@ -426,9 +426,9 @@ class temp_tracking():
                             ind = test_insdie((x, y), self.boxls)
                             x, y, w, h = self.boxls[ind]
                             cx, cy = self.surfacels[ind]
-                            sub_result.append((int(x+w/2), int(y+h/2)))
+                            sub_result.append((cx, cy))
                             cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                            cv2.circle(draw_img1, (int(x+w/2), int(y+h/2)), 5, (0, 0, 255), -1)
+                            cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
                             cv2.putText(draw_img1,"general",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                         
                         '''
@@ -491,7 +491,7 @@ class temp_tracking():
                     if max(set([lnum_tips, rnum_tips])) == 2 and set([lnum_tips, rnum_tips]) == set([1,2]):
                         self.mode = 1
                         return [[tips[0][0], tips[0][1]], 1]
-                    elif max(set([lnum_tips, rnum_tips])) > 2 and set([lnum_tips, rnum_tips]) == set([1,3]):
+                    elif set([lnum_tips, rnum_tips]) == set([1,3]):
                         self.mode = 5
                         return [[tips[0][0], tips[0][1]], 5]
                 
@@ -516,12 +516,15 @@ class temp_tracking():
                     M = cv2.moments(contour)
                     cx = int(M['m10']/M['m00'])
                     cy = int(M['m01']/M['m00'])
-                    self.surfacels.append((cx, cy))
                     x,y,w,h = cv2.boundingRect(contour)
+                    self.surfacels.append((int(x+w/2), int(y+h/2)))
                     self.boxls.append((x, y, w, h))
         if len(self.boxls) > 0:
             boxls_arr = np.array(self.boxls)
             self.boxls = boxls_arr[boxls_arr[:, 0].argsort()].tolist()
+            sur_array = boxls_arr = np.array(self.surfacels)
+            self.surfacels = sur_array[boxls_arr[:, 0].argsort()].tolist()
+
         # for x, y, w, h in self.boxls:
         #     sub = image[y:y+h, x:x+w, :]
         #     hsv = cv2.cvtColor(sub,cv2.COLOR_BGR2HSV)
