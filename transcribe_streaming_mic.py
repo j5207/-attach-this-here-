@@ -28,8 +28,10 @@ adjs = r'\b(yellow|green|blue|small|big|two|three)\b'
 pointings = r'\b(this|that|these|those|lease)\b'
 quiting = r'\b(exit|quit)\b'
 
+
 ready_for_pick = False
 ready_for_place = False
+
 
 class MicrophoneStream(object):
     """Opens a recording stream as a generator yielding the audio chunks."""
@@ -226,17 +228,18 @@ def listen_print_loop(responses):
     pub_select = rospy.Publisher('/voice_command', Int32, queue_size=1)
     pub_color = rospy.Publisher('/item_color', String, queue_size=20)
     #sub = rospy.Subscriber('/feedback', Int32, callback)
+    pick_time = None
     start_time = datetime.datetime.now()
     for response in responses:
-        current_time = datetime.datetime.now()
-        if (current_time - start_time).seconds > 60:
-            return True
+
+
         if not response.results:
             continue
         result = response.results[0]
         #print(result)
         if not result.alternatives:
             continue
+
         transcript = result.alternatives[0].transcript
 
         print(transcript)
@@ -259,6 +262,7 @@ def listen_print_loop(responses):
             pub_select.publish(1)
             ready_for_pick = False
             ready_for_place = True
+            pick_time = datetime.datetime.now()
 
         if (detect_place(transcript)) and ready_for_place:
             print(2)
@@ -267,7 +271,22 @@ def listen_print_loop(responses):
             ready_for_pick = False
             return True
 
-        num_chars_printed = 0
+        current_time = datetime.datetime.now()
+        if (current_time - start_time).seconds > 60:
+            return True
+
+        if pick_time is not None:
+            if (current_time - pick_time).seconds > 5:
+                ready_for_place = False
+                ready_for_pick = False
+                pub_select.publish(0)
+                pick_time = None
+
+        if re.search(r'\b(cancel|pencil)\b', transcript, re.I):
+            ready_for_place = False
+            ready_for_pick = False
+            pub_select.publish(0)
+            pick_time = None
 
 
 def main():
