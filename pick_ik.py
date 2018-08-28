@@ -31,7 +31,7 @@ import cv2
 
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-SPEED = 8
+SPEED = 6
 # , [0.340,-0.261], [449, 103]
 
 def coord_converter(x, y):
@@ -113,7 +113,7 @@ class pick_place:
         if position_copy[0] < 0:
             position_copy += [0.19]
         else:
-            position_copy += [0.192]
+            position_copy += [0.194]
         position_copy[1] = position_copy[1] + offset
         position_copy[0] = position_copy[0] + offset1
         pre_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.2])
