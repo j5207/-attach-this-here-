@@ -2,8 +2,8 @@ import numpy as np
 
 Green_low = np.array([62,0,0])
 Green_high = np.array([86,255,255])
-Hand_low = np.array([126,37,0])
-Hand_high = np.array([150,255,255])
+Hand_low = np.array([112,0,0])
+Hand_high = np.array([159,255,255])
 Skin_low = np.array([0,45,114])
 Skin_high = np.array([26,145,255])
 Blue_low = np.array([88,134,139])

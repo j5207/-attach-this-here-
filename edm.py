@@ -41,6 +41,8 @@ def self_rotate(img):
 
 
     (x,y),(MA,ma),angle = cv2.fitEllipse(cnt)
+    if angle > 100:
+        angle -= 180
     img = rotate_image(img, angle)
     return img
 
