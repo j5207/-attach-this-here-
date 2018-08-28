@@ -36,14 +36,14 @@ output_vector = [10, 6, 1]
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3)
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=3)
         self.conv2 = nn.Conv2d(64, 64, kernel_size=3)
         self.batchnorm2 = nn.BatchNorm2d(64)
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3)
         self.conv4 = nn.Conv2d(128, 128, kernel_size=3)
         self.batchnorm4 = nn.BatchNorm2d(128)
         self.fc1 = nn.Linear(10368, 200)
-        self.fc2 = nn.Linear(200, 5)
+        self.fc2 = nn.Linear(200, 4)
 
         # super(Net, self).__init__()
         # self.conv1 = nn.Conv2d(3, 10, kernel_size=5)

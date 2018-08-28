@@ -31,13 +31,16 @@ import cv2
 
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-SPEED = 3
+SPEED = 8
+# , [0.340,-0.261], [449, 103]
 
 def coord_converter(x, y):
     # pts1 = np.array([[138, 133], [281, 133], [429, 130], [134, 271], [280, 251], [417, 260], [137, 391], [274, 381]])
     # pts2 = np.array([[0.391, -0.319], [0.557, -0.337], [0.719, -0.355], [0.386, -0.496], [0.557, -0.489], [0.707, -0.470], [0.379, -0.640], [0.541, -0.641]])
-    pts1 = np.array([[(118, 84), (131, 239), (134, 369), (295, 354), (292, 85), (304, 227), (444, 237), (465, 76)]])
-    pts2 = np.array([[(0.369, -0.309), (0.399, -0.497), (0.376, -0.646), (0.589, -0.643), (0.568, -0.310), (0.589, -0.495),(0.759, -0.495), (0.792, -0.301)]])
+    #pts1 = np.array([[(118, 84), (131, 239), (134, 369), (295, 354), (292, 85), (304, 227), (444, 237), (465, 76)]])
+    #pts2 = np.array([[(0.369, -0.309), (0.399, -0.497), (0.376, -0.646), (0.589, -0.643), (0.568, -0.310), (0.589, -0.495),(0.759, -0.495), (0.792, -0.301)]])
+    pts1 = np.array([[(68, 57), (76, 217), (78, 345), (271, 220), (274, 358), (274, 147), (433, 338), (440, 232)]])
+    pts2 = np.array([[(-0.387,-0.238), (-0.341, -0.461), (-0.306, -0.652), (0.011, -0.448), (0.047, -0.637),(-0.013, -0.340),(0.361, -0.603),(0.357, -0.450)]])
     M, mask = cv2.findHomography(pts1, pts2, cv2.RANSAC,5.0)
     solusion = np.matmul(M,np.array([x, y, 1]))
     solusion = solusion/solusion[2]
@@ -62,7 +65,7 @@ class pick_place:
         self.listener = tf.TransformListener()
         self.Transformer = tf.TransformerROS()
 
-        joint_weights = [10,5,4,3,2,1]
+        joint_weights = [12,5,4,3,2,1]
         self.ik = InverseKinematicsUR5()
         self.ik.setJointWeights(joint_weights)
         self.ik.setJointLimits(-pi, pi)
@@ -71,7 +74,7 @@ class pick_place:
         self.gripper_ac = RobotiqActionClient('icl_phri_gripper/gripper_controller')
         self.gripper_ac.wait_for_server()
         self.gripper_ac.initiate()
-        self.gripper_ac.send_goal(0.08)
+        self.gripper_ac.send_goal(0.10)
         self.gripper_ac.wait_for_result()
 
     def define_grasp(self, position):
@@ -104,10 +107,15 @@ class pick_place:
             rospy.loginfo("fail to find IK solution")
     
     def single_exuete(self, position, mode):
-        offset = 0.015
+        offset = 0
+        offset1 = -0.02
         position_copy = deepcopy(position)
-        position_copy += [0.19]
+        if position_copy[0] < 0:
+            position_copy += [0.19]
+        else:
+            position_copy += [0.192]
         position_copy[1] = position_copy[1] + offset
+        position_copy[0] = position_copy[0] + offset1
         pre_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.2])
         post_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.2])
         grasp_position = self.define_grasp(position_copy)
@@ -120,7 +128,7 @@ class pick_place:
         if mode == "pick":
             self.gripper_ac.send_goal(0)
         elif mode == "place":
-            self.gripper_ac.send_goal(0.08)
+            self.gripper_ac.send_goal(0.10)
         self.gripper_ac.wait_for_result()
         rospy.loginfo("move out")
         self.move(post_position)
@@ -133,7 +141,7 @@ class pick_place:
             self.single_exuete(place_position, "place")
             #rospy.sleep(1)
             rospy.loginfo("let's go and get some rest")
-            rest_position = self.define_grasp([0.486, -0.152, 0.342])
+            rest_position = self.define_grasp([0.405, 0.010, 0.342])
             self.move(rest_position)
             #rospy.sleep(1)
     
@@ -164,30 +172,8 @@ if __name__ == '__main__':
     rospy.init_node('test', anonymous=True)
     task = pick_place()
     rospy.spin()
-    #pick_x, pick_y = coord_converter(108, 150)
-    #place_x, place_y = coord_converter(177, 193)
-    #task.pair_exuete([pick_x, pick_y], [place_x, place_y])
     
-    
-    
-    
-    
-    
-    
-    
+    # pick_x, pick_y = coord_converter(274, 141)
+    # place_x, place_y = coord_converter(275, 352)
     # task.pair_exuete([pick_x, pick_y], [place_x, place_y])
-    # listener = tf.TransformListener()
-    # Transformer = tf.TransformerROS()
-    # try:
-    #     listener.waitForTransform('/base_link','/target',rospy.Time(), rospy.Duration(4.0))
-    #     position, quaternion = listener.lookupTransform('/base_link', '/target',rospy.Time(0))
-    #     transform = Transformer.fromTranslationRotation(position, quaternion) 
-    #     h.move(transform)
-    # except Exception as e:
-    #     print(e)
-    # rospy.spin()
-    # while not rospy.is_shutdown():
-    #     try:
-            
-    #     except e:
-    #         print(e)
+    #print(coord_converter(449, 103))

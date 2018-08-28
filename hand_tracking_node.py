@@ -25,7 +25,7 @@ from torchvision import transforms
 from torch.autograd import Variable
 from utils import Net
 from collections import deque, Counter
-
+from edm import classifier
 
 distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
 voice_flag = 0
@@ -33,7 +33,7 @@ color_flag = None
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[169,57],[559,69],[168,281],[537,300]])
+    pts1 = np.float32([[206,139],[577,110],[212,355],[599,341]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
@@ -104,17 +104,26 @@ def get_k_dis((x1, y1), (x2, y2), (x, y)):
     coord = ((x, y), (x1, y1), (x2, y2))
     return Polygon(coord).area / distant((x1, y1), (x2, y2))
 
-def netsend(msg, localhost="192.168.1.115", port=6868):
-    a = deepcopy(msg)
-    a.append(-1)
-    for i in range(len(a)):
-        client = socket.socket()
-        client.connect((localhost, port))
-        line = str(a[i])
-        #print(line)
-        client.send(line.encode("utf-8"))
-        client.close()
-
+def netsend(msg, localhost="10.194.47.21", port=6868, flag=-1, need_unpack=True):
+    # if msg:
+    #     if need_unpack:
+    #         send = []
+    #         for i in range(len(msg)):
+    #             send.append(msg[i][0])
+    #             send.append(msg[i][1])
+    #         a = deepcopy(send)
+    #         a.append(flag)
+    #     else:
+    #         a = deepcopy(msg)
+    #         a.append(flag)
+    #     for i in range(len(a)):
+    #         client = socket.socket()
+    #         client.connect((localhost, port))
+    #         line = str(a[i])
+    #         #print(line)
+    #         client.send(line.encode("utf-8"))
+    #         client.close()
+    pass
 
 
 
@@ -151,7 +160,10 @@ class temp_tracking():
          #                                             transforms.ToTensor()])
         x,y,w,h = box
         temp = frame[y:y+h, x:x+w, :]
-        temp = cv2.cvtColor(temp,cv2.COLOR_BGR2RGB)
+        #temp = cv2.cvtColor(temp,cv2.COLOR_BGR2RGB)
+        temp = cv2.blur(temp,(5,5))
+        hsv = cv2.cvtColor(temp,cv2.COLOR_BGR2HSV)
+        temp = cv2.inRange(hsv, Hand_low, Hand_high)
         image = Image.fromarray(temp)
         img_tensor = preprocess(image)
         img_tensor.unsqueeze_(0)
@@ -168,8 +180,8 @@ class temp_tracking():
             # else:
             #     out = -1
         cv2.rectangle(draw_img,(x,y),(x+w,y+h),(0,0,255),2)
-        cv2.putText(draw_img,str(out),(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-        return int(out)
+        cv2.putText(draw_img,str(out + 1),(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+        return int(out) + 1
 
     def get_current_frame(self):
         self.cap.release()
@@ -271,6 +283,9 @@ class temp_tracking():
                 fake_tip, fake_center = result[0][4]
                 num_tips = len(tips)
                 label = self.test(box, draw_img1)
+                #print(box)
+                #label = -1
+                #label = classifier(draw_img1,self.image, box)
                 #self.tip_deque.appendleft(tips)
             # '''
             # one hand and one finger, flag == 1
@@ -362,7 +377,7 @@ class temp_tracking():
                     for x, y, w, h in self.boxls:
                         length_lsr.append((get_k_dis((rpoint[0], rpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
                     length_lsr = filter(lambda x: (rpoint[1] - x[1][1]) * (rpoint[1] - center[1]) <= 0, length_lsr)
-                    length_lsr = filter(lambda x: x[0] < 30, length_lsr)
+                    length_lsr = filter(lambda x: x[0] < 40, length_lsr)
                     if len(length_lsr) > 0:
                         rx,ry = min(length_lsr, key=lambda x: distant((x[1][0], x[1][1]), (rpoint[0], rpoint[1])))[1]
                         rind = test_insdie((rx, ry), self.boxls)
@@ -376,7 +391,7 @@ class temp_tracking():
                             for x, y, w, h in boxls:
                                 length_lsl.append((get_k_dis((lpoint[0], lpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
                             length_lsl = filter(lambda x: (lpoint[1] - x[1][1]) * (lpoint[1] - center[1]) <= 0, length_lsl)
-                            length_lsl = filter(lambda x: x[0] < 30, length_lsl)
+                            length_lsl = filter(lambda x: x[0] < 40, length_lsl)
                             if len(length_lsl) > 0:
                                 lx,ly = min(length_lsl, key=lambda x: distant((x[1][0], x[1][1]), (lpoint[0], lpoint[1])))[1]
                                 lind = test_insdie((lx, ly), boxls)
@@ -399,12 +414,17 @@ class temp_tracking():
                 # '''
                 elif num_tips > 0 and label == 3:
                     if self.trigger:
+                        # surface = np.ones(self.image.shape)
+                        # cv2.circle(surface, center, 120, (255, 255, 255), -1)
+                        # grayscaled = cv2.cvtColor(surface,cv2.COLOR_BGR2GRAY)
+                        # retval, threshold = cv2.threshold(grayscaled, 10, 255, cv2.THRESH_BINARY)
+                        # self.hand_mask.append(threshold)
                         self.hand_mask.append(get_handmask(deepcopy(self.image)))
                         rospy.loginfo("get brushed")
                         self.draw = draw_img1
-                        # trigger???
                         self.trigger = False
                         self.mode = 3
+                        netsend(list(center), need_unpack=False, flag=8)
                         #self.center = center
                         return [center,3]
 
@@ -532,6 +552,7 @@ class temp_tracking():
             self.boxls = boxls_arr[boxls_arr[:, 0].argsort()].tolist()
             sur_array = boxls_arr = np.array(self.surfacels)
             self.surfacels = sur_array[boxls_arr[:, 0].argsort()].tolist()
+            #print(self.surfacels)
 
         # for x, y, w, h in self.boxls:
         #     sub = image[y:y+h, x:x+w, :]
@@ -579,21 +600,30 @@ if __name__ == '__main__':
         
         #if pos:
             #=================PICK==============#
+        if voice_flag == 9:
+            ready_for_place = False
+            pos_N_cmd = []
+            color_flag = None
+            voice_flag = None
+            netsend([777, 888], need_unpack=False,flag=0)
         if voice_flag == 1 and not ready_for_place:
             temp.trigger = True
             pos = temp.update()
+            
             print(temp.last_select)
             if True:
                 if temp.mode == 1 and temp.last_select:
                     rospy.loginfo("one finger one hand")
                     pos_N_cmd.append(int(temp.last_select[0][0]))
                     pos_N_cmd.append(int(temp.last_select[0][1]))
+                    netsend(pos_N_cmd, flag=1, need_unpack=False)
                 elif temp.mode == 2 and temp.last_select:
                     rospy.loginfo("one hand two finger")
                     pos_N_cmd.append(int(temp.last_select[0][0]))
                     pos_N_cmd.append(int(temp.last_select[0][1]))
                     pos_N_cmd.append(int(temp.last_select[1][0]))
                     pos_N_cmd.append(int(temp.last_select[1][1]))
+                    netsend(pos_N_cmd, flag=1, need_unpack=False)
                 elif temp.mode == 3:
                     # start = time.time()
                     # while time.time() - start < 0.5:
@@ -607,6 +637,7 @@ if __name__ == '__main__':
                     for cx, cy in temp.last_select:
                         pos_N_cmd.append(int(cx))
                         pos_N_cmd.append(int(cy))
+                    netsend(pos_N_cmd, flag=1, need_unpack=False)
                 pick_handcenter = temp.pick_center
                 temp.pick_center = None
                 temp.trigger = False
@@ -638,6 +669,7 @@ if __name__ == '__main__':
                     for cx, cy in temp.last_select:
                         pos_N_cmd.append(cx)
                         pos_N_cmd.append(cy)
+                    netsend(pos_N_cmd, flag=1, need_unpack=False)
                     print(point)
                     if point[0][1] > 1:
                         pos_N_cmd.append(int(point[0][0][0]))
@@ -646,7 +678,7 @@ if __name__ == '__main__':
                     temp.trigger = True
                 
 
-                elif temp.mode == 5:
+                elif temp.mode == 5 and len(temp.hand_mask) > 0:
                     rospy.loginfo("two hand one multi one finger place")
                     rospy.sleep(5)
                     image = temp.get_current_frame()
@@ -677,6 +709,7 @@ if __name__ == '__main__':
                         if mask[cy, cx] == 255:
                             pos_N_cmd.append(int(cx))
                             pos_N_cmd.append(int(cy))
+                    netsend(pos_N_cmd, flag=1, need_unpack=False)
                     if point[0][1] > 1:
                         pos_N_cmd.append(int(point[0][0][0]))
                         pos_N_cmd.append(int(point[0][0][1]))
@@ -728,6 +761,7 @@ if __name__ == '__main__':
                 temp.after_trigger = False
                 #netsend(pos_N_cmd)
                 if len(pos_N_cmd) != pre_length and len(pos_N_cmd) >= 4:
+                    netsend(pos_N_cmd[-2:], flag=2, need_unpack=False)
                     print(pos_N_cmd, "this is published msg")
                     pub.publish(Int32MultiArray(data=pos_N_cmd))
                 else:
@@ -746,6 +780,7 @@ if __name__ == '__main__':
             break
         else:
             pos = temp.update()
+            netsend(temp.last_select)
         cv2.imshow('node',temp.draw)
         k = cv2.waitKey(1) & 0xFF # large wait time to remove freezing
         if k == 113 or k == 27:
