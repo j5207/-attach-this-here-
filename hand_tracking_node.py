@@ -92,13 +92,17 @@ def get_yellow_objectmask(img):
     yellow_mask = cv2.dilate(yellow_mask, kernel = np.ones((11,11),np.uint8))
     return yellow_mask
 
-def get_handmask(frame):
-    blur = cv2.blur(frame,(3,3))
-    hsv = cv2.cvtColor(blur,cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, Hand_low, Hand_high)
-    kernel_square = np.ones((15,15),np.uint8)
-    mask = cv2.dilate(mask,kernel_square,iterations = 4)
-    return mask
+# def get_handmask(frame):
+#     blur = cv2.blur(frame,(3,3))
+#     hsv = cv2.cvtColor(blur,cv2.COLOR_BGR2HSV)
+#     mask = cv2.inRange(hsv, Hand_low, Hand_high)
+#     kernel_square = np.ones((15,15),np.uint8)
+#     mask = cv2.dilate(mask,kernel_square,iterations = 4)
+#     return mask
+def get_handmask(frame, center):
+    surface = np.zeros((480, 640), dtype=np.uint8)
+    cv2.circle(surface, center, 100, (255), -1)
+    return surface
 
 def get_k_dis((x1, y1), (x2, y2), (x, y)):
     coord = ((x, y), (x1, y1), (x2, y2))
@@ -314,7 +318,8 @@ class temp_tracking():
                         object_mask = get_objectmask(deepcopy(self.image))
                         mask = self.hand_mask[0]
                         for i in range(1, len(self.hand_mask), 1):
-                            mask = cv2.bitwise_or(self.hand_mask[i],mask)                     
+                            mask = cv2.bitwise_or(self.hand_mask[i],mask)   
+                        print(mask.dtype, object_mask.dtype)                  
                         mask = cv2.bitwise_and(mask,object_mask)
                         temp_result = []
                         for cx, cy in self.surfacels:
@@ -325,6 +330,8 @@ class temp_tracking():
                     '''
                     self.draw = draw_img1
                     print("getting bitwise and when there is one finger after palm")
+                    if len(tips) == 0:
+                        rospy.logwarn("no finger tips")
                     print([temp_result, tips[0], center,3])
                     #self.hand_mask = []
                     #self.after_trigger = False
@@ -419,7 +426,8 @@ class temp_tracking():
                         # grayscaled = cv2.cvtColor(surface,cv2.COLOR_BGR2GRAY)
                         # retval, threshold = cv2.threshold(grayscaled, 10, 255, cv2.THRESH_BINARY)
                         # self.hand_mask.append(threshold)
-                        self.hand_mask.append(get_handmask(deepcopy(self.image)))
+                        self.hand_mask = []
+                        self.hand_mask.append(get_handmask(deepcopy(self.image), center))
                         rospy.loginfo("get brushed")
                         self.draw = draw_img1
                         self.trigger = False

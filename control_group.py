@@ -65,13 +65,6 @@ def get_objectmask(img):
     return thresh
 
 
-def get_handmask(frame):
-    blur = cv2.blur(frame,(3,3))
-    hsv = cv2.cvtColor(blur,cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, Hand_low, Hand_high)
-    kernel_square = np.ones((15,15),np.uint8)
-    mask = cv2.dilate(mask,kernel_square,iterations = 4)
-    return mask
 
 def netsend(msg, localhost="10.194.47.21", port=6868, flag=-1, need_unpack=True):
     # if msg:
@@ -142,10 +135,12 @@ class control_gui():
                 self.command.append(cx)
                 self.command.append(cy)
                 self.selected.append((cx, cy))
+                netsend(self.command, flag=1, need_unpack=False)
                 rospy.loginfo("append target : {}, {}".format(cx, cy))
             elif ind is None and len(self.selected) > 0:
                 self.location.append(x)
                 self.location.append(y)
+                netsend(self.location, flag=2, need_unpack=False)
                 rospy.loginfo("append destination : {}, {}".format(x, y))
         
         if event == cv2.EVENT_LBUTTONUP and (self.temp_surface[y, x] == np.array([0, 0, 255])).all():
@@ -158,6 +153,7 @@ class control_gui():
         
         if event == cv2.EVENT_LBUTTONUP and (self.temp_surface[y, x] == np.array([0, 0, 254])).all():
             rospy.loginfo("Cancel all info")
+            netsend([777, 888], need_unpack=False,flag=0)
             self.command = []
             self.selected = []
             self.location = []
