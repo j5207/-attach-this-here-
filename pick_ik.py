@@ -26,6 +26,7 @@ from math import pi
 from icl_phri_robotiq_control.robotiq_utils import *
 from inverseKinematicsUR5 import InverseKinematicsUR5, transformRobotParameter
 from copy import deepcopy
+from std_msgs.msg import Int32
 import cv2
 
 
@@ -49,7 +50,7 @@ def coord_converter(x, y):
 class pick_place:
     def __init__(self):
         #/vel_based_pos_traj_controller/
-        self.client = actionlib.SimpleActionClient('icl_phri_ur5//follow_joint_trajectory', FollowJointTrajectoryAction)
+        self.client = actionlib.SimpleActionClient('icl_phri_ur5/follow_joint_trajectory', FollowJointTrajectoryAction)
         self.goal = FollowJointTrajectoryGoal()
         self.goal.trajectory = JointTrajectory()
         self.goal.trajectory.joint_names = JOINT_NAMES
@@ -70,6 +71,7 @@ class pick_place:
         self.ik.setJointWeights(joint_weights)
         self.ik.setJointLimits(-pi, pi)
         self.sub = rospy.Subscriber('/target_position', Int32MultiArray, self.pickplace_cb)
+        self.sub_cancel = rospy.Subscriber('/voice_command', Int32, self.cancel_cb)
 
         self.gripper_ac = RobotiqActionClient('icl_phri_gripper/gripper_controller')
         self.gripper_ac.wait_for_server()
@@ -86,7 +88,7 @@ class pick_place:
         #current_m = transformRobotParameter(self.joints_pos_start)
         qsol = self.ik.findClosestIK(dest_m,self.joints_pos_start)
         
-        if qsol is not None:
+        if qsol is not None and not self.cancel:
             if qsol[0] < 0:
                 qsol[0] += pi
             else:
@@ -103,8 +105,10 @@ class pick_place:
                 self.client.wait_for_result()
             except:
                 raise
-        else:
+        elif qsol is None:
             rospy.loginfo("fail to find IK solution")
+        elif self.cancel:
+            rospy.logwarn("this goal canceled")
     
     def single_exuete(self, position, mode):
         offset = 0
@@ -148,6 +152,7 @@ class pick_place:
     def pickplace_cb(self, msg):
         #print(msg)
         print(msg.data)
+        self.cancel = False
         a = list(msg.data)
         mean_x = np.mean([a[i] for i in range(0, len(a)-2, 2)])
         mean_y = np.mean([a[i] for i in range(1, len(a)-2, 2)])
@@ -161,6 +166,26 @@ class pick_place:
             print(pick_x, pick_y)
             print(place_x, place_y)
             self.pair_exuete([pick_x, pick_y], [place_x, place_y])
+            if self.cancel:
+                self.cancel = False
+
+                joint_states = rospy.wait_for_message("joint_states", JointState)
+                joint_states = list(deepcopy(joint_states).position)
+                del joint_states[-1]
+                self.joints_pos_start = np.array(joint_states)
+
+                self.client.wait_for_result()
+                rospy.loginfo("go to init because goal canceled")
+                rest_position = self.define_grasp([0.405, 0.010, 0.342])
+                self.move(rest_position)
+            break
+                
+    
+    def cancel_cb(self, msg):
+        if msg.data == 9:
+            rospy.logwarn("canceling goals")
+            self.client.cancel_all_goals()
+            self.cancel = True
 
 
 

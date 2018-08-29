@@ -96,7 +96,7 @@ def netsend(msg, localhost="10.194.47.21", port=6868, flag=-1, need_unpack=True)
 class control_gui():
     def __init__(self):
         rospy.init_node('control_group')
-        self.cap = cv2.VideoCapture(1)
+        self.cap = cv2.VideoCapture(0)
         cv2.namedWindow('gui')
         cv2.setMouseCallback('gui',self.gui_callback)
         self.command = []

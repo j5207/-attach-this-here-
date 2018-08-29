@@ -137,7 +137,7 @@ def netsend(msg, localhost="10.194.47.21", port=6868, flag=-1, need_unpack=True)
 
 class temp_tracking():
     def __init__(self):
-        self.cap = cv2.VideoCapture(1)
+        self.cap = cv2.VideoCapture(0)
         self.hand_mask = []
         self.trigger = False
         self.after_trigger = False
