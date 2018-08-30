@@ -30,6 +30,7 @@ from edm import classifier
 distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
 voice_flag = 0
 color_flag = None
+pro_pub = rospy.Publisher('/netsend', Int32MultiArray, queue_size=1)
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
@@ -108,27 +109,45 @@ def get_k_dis((x1, y1), (x2, y2), (x, y)):
     coord = ((x, y), (x1, y1), (x2, y2))
     return Polygon(coord).area / distant((x1, y1), (x2, y2))
 
-def netsend(msg, localhost="10.194.47.21", port=6868, flag=-1, need_unpack=True):
-    # if msg:
-    #     if need_unpack:
-    #         send = []
-    #         for i in range(len(msg)):
-    #             send.append(msg[i][0])
-    #             send.append(msg[i][1])
-    #         a = deepcopy(send)
-    #         a.append(flag)
-    #     else:
-    #         a = deepcopy(msg)
-    #         a.append(flag)
-    #     for i in range(len(a)):
-    #         client = socket.socket()
-    #         client.connect((localhost, port))
-    #         line = str(a[i])
-    #         #print(line)
-    #         client.send(line.encode("utf-8"))
-    #         client.close()
-    pass
+# def netsend(msg, localhost="10.194.55.236", port=6868, flag=-1, need_unpack=True):
+#     if msg:
+#         rospy.loginfo("send tcp msg: {}".format(msg))
+#         if need_unpack:
+#             send = []
+#             for i in range(len(msg)):
+#                 send.append(int(msg[i][0]))
+#                 send.append(int(msg[i][1]))
+#             a = deepcopy(send)
+#             a.append(flag)
+#         else:
+#             a = deepcopy(msg)
+#             a.append(flag)
+#         for i in range(len(a)):
+#             client = socket.socket()
+#             client.connect((localhost, port))
+#             line = str(int(a[i]))
+#             #print(line)
+#             client.send(line.encode("utf-8"))
+#             client.close()
 
+    # pass
+def netsend(msg, flag=-1, need_unpack=True):
+    global pro_pub
+    if msg:
+        if flag != -1:
+            rospy.loginfo("flag is {}. msg is {}".format(flag, msg))
+        if need_unpack:
+            send = []
+            for i in range(len(msg)):
+                send.append(int(msg[i][0]))
+                send.append(int(msg[i][1]))
+            a = deepcopy(send)
+            a.append(flag)
+        else:
+            a = deepcopy(msg)
+            a.append(flag)
+        pro_pub.publish(Int32MultiArray(data=a))
+    # pass
 
 
 
@@ -272,6 +291,7 @@ class temp_tracking():
                     #print([temp_result, tips[0], center,3])
                     #self.hand_mask = []
                     #self.after_trigger = False
+                    #netsend(temp_result, flag=1, need_unpack=True)
                     self.last_select = temp_result
                     self.mode = 3
                    # self.center = center
@@ -319,7 +339,7 @@ class temp_tracking():
                         mask = self.hand_mask[0]
                         for i in range(1, len(self.hand_mask), 1):
                             mask = cv2.bitwise_or(self.hand_mask[i],mask)   
-                        print(mask.dtype, object_mask.dtype)                  
+                        #print(mask.dtype, object_mask.dtype)                  
                         mask = cv2.bitwise_and(mask,object_mask)
                         temp_result = []
                         for cx, cy in self.surfacels:
@@ -332,13 +352,14 @@ class temp_tracking():
                     print("getting bitwise and when there is one finger after palm")
                     if len(tips) == 0:
                         rospy.logwarn("no finger tips")
-                    print([temp_result, tips[0], center,3])
-                    #self.hand_mask = []
-                    #self.after_trigger = False
-                    self.last_select = temp_result
-                    self.mode = 3
-                    #self.center = center
-                    return [temp_result, tips[0], center,3]
+                    else:
+                        #print([temp_result, tips[0], center,3])
+                        #self.hand_mask = []
+                        #self.after_trigger = False
+                        self.last_select = temp_result
+                        self.mode = 3
+                        #self.center = center
+                        return [temp_result, tips[0], center,3]
 
                 if len(self.boxls) > 0 and num_tips == 1 and label != 4:        
                     if len(self.hand_mask) == 0 or not self.after_trigger:
@@ -432,7 +453,8 @@ class temp_tracking():
                         self.draw = draw_img1
                         self.trigger = False
                         self.mode = 3
-                        netsend(list(center), need_unpack=False, flag=8)
+                        rospy.loginfo("send center information :{}".format(list(center)))
+                        netsend(list(center), need_unpack=False, flag=-8)
                         #self.center = center
                         return [center,3]
 
@@ -583,12 +605,12 @@ class temp_tracking():
         self.cap.release()
 
 def callback(msg):
-    print(msg.data)
+    #print(msg.data)
     global voice_flag
     voice_flag = msg.data
 
 def colorback(msg):
-    print(msg.data)
+    #print(msg.data)
     global color_flag
     color_flag = msg.data
 
@@ -678,6 +700,7 @@ if __name__ == '__main__':
                         pos_N_cmd.append(cx)
                         pos_N_cmd.append(cy)
                     netsend(pos_N_cmd, flag=1, need_unpack=False)
+                    rospy.sleep(0.1)
                     print(point)
                     if point[0][1] > 1:
                         pos_N_cmd.append(int(point[0][0][0]))
