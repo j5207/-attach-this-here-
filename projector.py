@@ -140,7 +140,7 @@ if __name__ == '__main__':
                 proj.pick_start = True
                 proj.img = np.zeros((900, 1600, 3), np.uint8)
                 if len(proj.pos) == 2:
-                    cv2.circle(proj.img, (proj.pos[0], proj.pos[1]), 150, (255, 255, 255), 5)
+                    cv2.circle(proj.img, (proj.pos[0], proj.pos[1]), 100, (255, 255, 255), 5)
                 cv2.imshow('projector1' , proj.img)
                 cv2.waitKey(1)
             
