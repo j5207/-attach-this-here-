@@ -31,10 +31,11 @@ distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
 voice_flag = 0
 color_flag = None
 pro_pub = rospy.Publisher('/netsend', Int32MultiArray, queue_size=1)
+gesture_id = None
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[206,139],[577,110],[212,355],[599,341]])
+    pts1 = np.float32([[206,138],[577,114],[208,355],[596,347]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
@@ -66,7 +67,7 @@ def get_objectmask(img):
     hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
     green_mask = cv2.inRange(hsv, Green_low, Green_high)
     hand_mask = cv2.inRange(hsv, Hand_low, Hand_high)
-    hand_mask = cv2.dilate(hand_mask, kernel = np.ones((11,11),np.uint8))
+    hand_mask = cv2.dilate(hand_mask, kernel = np.ones((15,15),np.uint8))
     skin_mask = cv2.inRange(hsv, Skin_low, Skin_high)
     skin_mask = cv2.dilate(skin_mask, kernel = np.ones((11,11),np.uint8))
     thresh = 255 - green_mask
@@ -132,7 +133,7 @@ def get_k_dis((x1, y1), (x2, y2), (x, y)):
 
     # pass
 def netsend(msg, flag=-1, need_unpack=True):
-    global pro_pub
+    global pro_pub, gesture_id
     if msg:
         if flag != -1:
             rospy.loginfo("flag is {}. msg is {}".format(flag, msg))
@@ -155,6 +156,7 @@ def netsend(msg, flag=-1, need_unpack=True):
 
 
 class temp_tracking():
+    global gesture_id
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
         self.hand_mask = []
@@ -173,8 +175,10 @@ class temp_tracking():
         self.center = None
         self.two_hand_mode = None
         self.pick_center = None
+        self.gesture_mode = None
 
     def test(self, box ,draw_img):
+        global gesture_id
         net = self.net
         frame = self.image.copy()
         preprocess = transforms.Compose([transforms.Resize((50, 50)),
@@ -204,6 +208,7 @@ class temp_tracking():
             #     out = -1
         cv2.rectangle(draw_img,(x,y),(x+w,y+h),(0,0,255),2)
         cv2.putText(draw_img,str(out + 1),(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+        gesture_id = int(out +1)
         return int(out) + 1
 
     def get_current_frame(self):
@@ -570,7 +575,7 @@ class temp_tracking():
         if len(object_contours) > 0:
             for i , contour in enumerate(object_contours):
                 area = cv2.contourArea(contour)
-                if area>200 and area < 2000 and object_hierarchy[0, i, 3] == -1:					
+                if area>250 and area < 800 and object_hierarchy[0, i, 3] == -1:					
                     M = cv2.moments(contour)
                     cx = int(M['m10']/M['m00'])
                     cy = int(M['m01']/M['m00'])
@@ -630,12 +635,13 @@ if __name__ == '__main__':
         
         #if pos:
             #=================PICK==============#
-        if voice_flag == 9:
+        if voice_flag == 9 or voice_flag == -20:
             ready_for_place = False
             pos_N_cmd = []
             color_flag = None
             voice_flag = None
             netsend([777, 888], need_unpack=False,flag=0)
+            temp.hand_mask = []
         if voice_flag == 1 and not ready_for_place:
             temp.trigger = True
             pos = temp.update()
@@ -741,6 +747,7 @@ if __name__ == '__main__':
                             pos_N_cmd.append(int(cx))
                             pos_N_cmd.append(int(cy))
                     netsend(pos_N_cmd, flag=1, need_unpack=False)
+                    rospy.sleep(0.1)
                     if point[0][1] > 1:
                         pos_N_cmd.append(int(point[0][0][0]))
                         pos_N_cmd.append(int(point[0][0][1]))
@@ -796,6 +803,7 @@ if __name__ == '__main__':
                     print(pos_N_cmd, "this is published msg")
                     pub.publish(Int32MultiArray(data=pos_N_cmd))
                 else:
+                    netsend([777, 888], need_unpack=False,flag=0)
                     rospy.logwarn("fail to publish, need to have place location")
                 temp.tip_deque.clear()
                 temp.tip_deque1.clear()
