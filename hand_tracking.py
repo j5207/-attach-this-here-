@@ -115,8 +115,8 @@ class hand_tracking():
         center = tuple([pt[0], pt[1]])
         rows,cols = frame_in.shape[:2]
         [vx,vy,x,y] = cv2.fitLine(cont, cv2.DIST_L2,0,0.01,0.01)
-        cv2.line(frame_in,(x - vx * 100, y - vy * 100),(x,y),(0,255,0),2)
-        endpoint1 = (x - vx * 100, y - vy * 100)
+        cv2.line(frame_in,(x - vx * 70, y - vy * 70),(x,y),(0,255,0),2)
+        endpoint1 = (x - vx * 70, y - vy * 70)
         # lefty = int((-x*vy/vx) + y)
         # righty = int(((cols-x)*vy/vx)+y)
         

@@ -471,6 +471,7 @@ class temp_tracking():
                     for x, y, w, h in self.boxls:
                         length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
                     length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
+                    length_ls = filter(lambda x: (point[0] - x[1][0]) * (center[0] - x[1][0]) > 0, length_ls)
                     #print("haha", len(length_ls))
                     length_ls = filter(lambda x: x[0] < 50, length_ls)
                     #print("ddd", len(length_ls))
