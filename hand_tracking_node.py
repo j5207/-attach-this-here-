@@ -173,6 +173,7 @@ class temp_tracking():
         self.tip_deque2 = deque(maxlen=20)
         self.mode = None
         self.center = None
+        self.onehand_center = None
         self.two_hand_mode = None
         self.pick_center = None
         self.gesture_mode = None
@@ -313,6 +314,7 @@ class temp_tracking():
                 fake_tip, fake_center = result[0][4]
                 num_tips = len(tips)
                 label = self.test(box, draw_img1)
+                self.onehand_center = center
                 #print(box)
                 #label = -1
                 #label = classifier(draw_img1,self.image, box)
@@ -574,10 +576,13 @@ class temp_tracking():
                     self.center = [list(lcenter), list(rcenter)]
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
 
-                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) < 4:
-                    sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
-                    center = sub_result[0][0]
-                    tips = sub_result[0][1]
+                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) < 4 and self.onehand_center:
+                    #sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
+                    sub_result = max([[rcenter, rtips], [lcenter, ltips]], key=lambda x: distant(x[0], self.onehand_center))
+                    center = sub_result[0]
+                    tips = sub_result[1]
+                    # center = sub_result[0][0]
+                    # tips = sub_result[0][1]
                     self.tip_deque.appendleft((tips[0][0], tips[0][1]))
                     self.draw = draw_img1
                     
@@ -590,10 +595,13 @@ class temp_tracking():
                         self.two_hand_mode = 5
                         return [[tips[0][0], tips[0][1]], 5]
                 
-                elif min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) == 4:
-                    sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
-                    center = sub_result[0][0]
-                    tips = sub_result[0][1]
+                elif min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) == 4 and self.onehand_center:
+                    #sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
+                    sub_result = max([[rcenter, rtips], [lcenter, ltips]], key=lambda x: distant(x[0], self.onehand_center))
+                    center = sub_result[0]
+                    tips = sub_result[1]
+                    # center = sub_result[0][0]
+                    # tips = sub_result[0][1]
                     self.tip_deque.appendleft((tips[0][0], tips[0][1]))
                     self.draw = draw_img1
                     self.mode = 1
@@ -685,6 +693,7 @@ if __name__ == '__main__':
 
             netsend([777, 888], need_unpack=False,flag=0)
             temp.hand_mask = []
+            temp.onehand_center = None
         if voice_flag == 1 and not ready_for_place:
             temp.trigger = True
             pos = temp.update()
@@ -736,7 +745,22 @@ if __name__ == '__main__':
             point = c.most_common(2)
             if len(point) == 0 or point[0][1] < 1:
                 rospy.logwarn("not enoght deque point")
+                ready_for_place = False
+                pos_N_cmd = []
+                color_flag = None
+                voice_flag = None
+
+                temp.tip_deque.clear()
+                temp.tip_deque1.clear()
+                temp.tip_deque2.clear()
+                temp.two_hand_mode = None
                 temp.mode = 0
+                temp.last_select = None
+                temp.center = None
+
+                netsend([777, 888], need_unpack=False,flag=0)
+                temp.hand_mask = []
+                temp.onehand_center = None
             if len(point) > 1 and temp.pick_tip and point[0][0] == temp.pick_tip:
                 del point[0]
             if len(point) > 0:
@@ -854,16 +878,23 @@ if __name__ == '__main__':
                 else:
                     netsend([777, 888], need_unpack=False,flag=0)
                     rospy.logwarn("fail to publish, need to have place location")
+                    ready_for_place = False
+                    pos_N_cmd = []
+                    color_flag = None
+                    voice_flag = None
+
                     temp.tip_deque.clear()
                     temp.tip_deque1.clear()
                     temp.tip_deque2.clear()
-                    ready_for_place = False
                     temp.two_hand_mode = None
-                    color_flag = None
-                    pos_N_cmd = []
                     temp.mode = 0
                     temp.last_select = None
                     temp.center = None
+
+                    netsend([777, 888], need_unpack=False,flag=0)
+                    temp.hand_mask = []
+                    temp.onehand_center = None
+                voice_flag = None
                 temp.tip_deque.clear()
                 temp.tip_deque1.clear()
                 temp.tip_deque2.clear()
@@ -874,6 +905,7 @@ if __name__ == '__main__':
                 temp.mode = 0
                 temp.last_select = None
                 temp.center = None
+                temp.onehand_center = None
         elif voice_flag == -1:
             break
         else:

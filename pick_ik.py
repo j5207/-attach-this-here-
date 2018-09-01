@@ -32,7 +32,7 @@ import cv2
 
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-SPEED = 6
+SPEED = 5
 # , [0.340,-0.261], [449, 103]
 
 def coord_converter(x, y):
