@@ -114,7 +114,7 @@ class pick_place:
             rospy.logwarn("this goal canceled")
     
     def single_exuete(self, position, mode):
-        offset = 0
+        offset = 0.01
         offset1 = 0
         position_copy = deepcopy(position)
         if position_copy[0] < 0:
@@ -147,9 +147,7 @@ class pick_place:
             self.single_exuete(pick_position, "pick")
             self.single_exuete(place_position, "place")
             #rospy.sleep(1)
-            rospy.loginfo("let's go and get some rest")
-            rest_position = self.define_grasp([0.405, 0.010, 0.342])
-            self.move(rest_position)
+            
             #rospy.sleep(1)
     
     def pickplace_cb(self, msg):
@@ -178,10 +176,13 @@ class pick_place:
                 self.joints_pos_start = np.array(joint_states)
 
                 self.client.wait_for_result()
-                rospy.loginfo("go to init because goal canceled")
-                rest_position = self.define_grasp([0.405, 0.010, 0.342])
-                self.move(rest_position)
+                # rospy.loginfo("go to init because goal canceled")
+                # rest_position = self.define_grasp([0.405, 0.010, 0.342])
+                # self.move(rest_position)
                 break
+        rospy.loginfo("let's go and get some rest")
+        rest_position = self.define_grasp([0.405, 0.010, 0.342])
+        self.move(rest_position)
                 
     
     def cancel_cb(self, msg):

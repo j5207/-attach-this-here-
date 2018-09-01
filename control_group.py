@@ -30,6 +30,7 @@ from edm import classifier
 distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
 voice_flag = 0
 color_flag = None
+pro_pub = rospy.Publisher('/netsend', Int32MultiArray, queue_size=1)
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
@@ -66,26 +67,23 @@ def get_objectmask(img):
 
 
 
-def netsend(msg, localhost="10.194.47.21", port=6868, flag=-1, need_unpack=True):
-    # if msg:
-    #     if need_unpack:
-    #         send = []
-    #         for i in range(len(msg)):
-    #             send.append(msg[i][0])
-    #             send.append(msg[i][1])
-    #         a = deepcopy(send)
-    #         a.append(flag)
-    #     else:
-    #         a = deepcopy(msg)
-    #         a.append(flag)
-    #     for i in range(len(a)):
-    #         client = socket.socket()
-    #         client.connect((localhost, port))
-    #         line = str(a[i])
-    #         #print(line)
-    #         client.send(line.encode("utf-8"))
-    #         client.close()
-    pass
+# def netsend(msg, localhost="10.194.47.21", port=6868, flag=-1, need_unpack=True):
+def netsend(msg, flag=-1, need_unpack=True):
+    global pro_pub
+    if msg:
+        if flag != -1:
+            rospy.loginfo("flag is {}. msg is {}".format(flag, msg))
+        if need_unpack:
+            send = []
+            for i in range(len(msg)):
+                send.append(int(msg[i][0]))
+                send.append(int(msg[i][1]))
+            a = deepcopy(send)
+            a.append(flag)
+        else:
+            a = deepcopy(msg)
+            a.append(flag)
+        pro_pub.publish(Int32MultiArray(data=a))
 
 
 
@@ -140,12 +138,15 @@ class control_gui():
             elif ind is None and len(self.selected) > 0:
                 self.location.append(x)
                 self.location.append(y)
-                netsend(self.location, flag=2, need_unpack=False)
                 rospy.loginfo("append destination : {}, {}".format(x, y))
         
         if event == cv2.EVENT_LBUTTONUP and (self.temp_surface[y, x] == np.array([0, 0, 255])).all():
+            netsend(self.location, flag=2, need_unpack=False)
             self.command += self.location
             rospy.loginfo("publishing msg : {}".format(self.command))
+            # netsend(self.command[:-2], flag=1, need_unpack=False)
+            # rospy.sleep(0.3)
+            # netsend(self.command[-2:], flag=2, need_unpack=False)
             self.pub.publish(Int32MultiArray(data=self.command))
             self.command = []
             self.selected = []

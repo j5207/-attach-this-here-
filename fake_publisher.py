@@ -4,7 +4,7 @@ from std_msgs.msg import Int32
 import time
 
 rospy.init_node('fake_publisher')
-pub = rospy.Publisher('/cancel', Int32, queue_size=1)
+pub = rospy.Publisher('/voice_command', Int32, queue_size=1)
 start = time.time()
 while True:
     num = raw_input('please enter \n')
