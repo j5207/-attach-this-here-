@@ -31,10 +31,11 @@ distant = lambda (x1, y1), (x2, y2) : sqrt((x1 - x2)**2 + (y1 - y2)**2)
 voice_flag = 0
 color_flag = None
 pro_pub = rospy.Publisher('/netsend', Int32MultiArray, queue_size=1)
+gesture_id = None
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[206,139],[577,110],[212,355],[599,341]])
+    pts1 = np.float32([[206,138],[577,114],[208,355],[596,347]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
@@ -66,7 +67,7 @@ def get_objectmask(img):
     hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
     green_mask = cv2.inRange(hsv, Green_low, Green_high)
     hand_mask = cv2.inRange(hsv, Hand_low, Hand_high)
-    hand_mask = cv2.dilate(hand_mask, kernel = np.ones((11,11),np.uint8))
+    hand_mask = cv2.dilate(hand_mask, kernel = np.ones((15,15),np.uint8))
     skin_mask = cv2.inRange(hsv, Skin_low, Skin_high)
     skin_mask = cv2.dilate(skin_mask, kernel = np.ones((11,11),np.uint8))
     thresh = 255 - green_mask
@@ -132,7 +133,7 @@ def get_k_dis((x1, y1), (x2, y2), (x, y)):
 
     # pass
 def netsend(msg, flag=-1, need_unpack=True):
-    global pro_pub
+    global pro_pub, gesture_id
     if msg:
         if flag != -1:
             rospy.loginfo("flag is {}. msg is {}".format(flag, msg))
@@ -155,6 +156,7 @@ def netsend(msg, flag=-1, need_unpack=True):
 
 
 class temp_tracking():
+    global gesture_id
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
         self.hand_mask = []
@@ -171,10 +173,14 @@ class temp_tracking():
         self.tip_deque2 = deque(maxlen=20)
         self.mode = None
         self.center = None
+        self.onehand_center = None
         self.two_hand_mode = None
         self.pick_center = None
+        self.gesture_mode = None
+        self.pick_tip = None
 
     def test(self, box ,draw_img):
+        global gesture_id
         net = self.net
         frame = self.image.copy()
         preprocess = transforms.Compose([transforms.Resize((50, 50)),
@@ -204,6 +210,7 @@ class temp_tracking():
             #     out = -1
         cv2.rectangle(draw_img,(x,y),(x+w,y+h),(0,0,255),2)
         cv2.putText(draw_img,str(out + 1),(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+        gesture_id = int(out +1)
         return int(out) + 1
 
     def get_current_frame(self):
@@ -307,6 +314,7 @@ class temp_tracking():
                 fake_tip, fake_center = result[0][4]
                 num_tips = len(tips)
                 label = self.test(box, draw_img1)
+                self.onehand_center = center
                 #print(box)
                 #label = -1
                 #label = classifier(draw_img1,self.image, box)
@@ -384,6 +392,7 @@ class temp_tracking():
                             '''
                             flag is 1
                             '''
+                            self.pick_tip = tuple([point[0],point[1]])
                             self.draw = draw_img1
                             self.last_select = [(cx, cy)]
                             self.mode = 1
@@ -405,7 +414,7 @@ class temp_tracking():
                     for x, y, w, h in self.boxls:
                         length_lsr.append((get_k_dis((rpoint[0], rpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
                     length_lsr = filter(lambda x: (rpoint[1] - x[1][1]) * (rpoint[1] - center[1]) <= 0, length_lsr)
-                    length_lsr = filter(lambda x: x[0] < 40, length_lsr)
+                    length_lsr = filter(lambda x: x[0] < 20, length_lsr)
                     if len(length_lsr) > 0:
                         rx,ry = min(length_lsr, key=lambda x: distant((x[1][0], x[1][1]), (rpoint[0], rpoint[1])))[1]
                         rind = test_insdie((rx, ry), self.boxls)
@@ -419,7 +428,7 @@ class temp_tracking():
                             for x, y, w, h in boxls:
                                 length_lsl.append((get_k_dis((lpoint[0], lpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
                             length_lsl = filter(lambda x: (lpoint[1] - x[1][1]) * (lpoint[1] - center[1]) <= 0, length_lsl)
-                            length_lsl = filter(lambda x: x[0] < 40, length_lsl)
+                            length_lsl = filter(lambda x: x[0] < 20, length_lsl)
                             if len(length_lsl) > 0:
                                 lx,ly = min(length_lsl, key=lambda x: distant((x[1][0], x[1][1]), (lpoint[0], lpoint[1])))[1]
                                 lind = test_insdie((lx, ly), boxls)
@@ -465,35 +474,67 @@ class temp_tracking():
                     length_ls = []
                     for x, y, w, h in self.boxls:
                         length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
-                    length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
+                    #length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
+                    #length_ls = filter(lambda x: (point[0] - x[1][0]) * (center[0] - x[1][0]) > 0, length_ls)
+                    length_ls = filter(lambda x: x[1][1] - point[1] < 0, length_ls)
                     #print("haha", len(length_ls))
                     length_ls = filter(lambda x: x[0] < 50, length_ls)
                     #print("ddd", len(length_ls))
                     sub_result = []
-                    if len(length_ls) > 0:
-                        for i in range(len(length_ls)):
+                    if color_flag is not None:
+                        object_mask = get_objectmask(deepcopy(self.image))
+                        if color_flag == "yellow":
+                            color_mask = get_yellow_objectmask(deepcopy(self.image))
+                        elif color_flag == "blue":
+                            color_mask = get_blue_objectmask(deepcopy(self.image))
+                        if len(length_ls) > 0:
+                            for i in range(len(length_ls)):
+                                # x,y = min(length_ls, key=lambda x: distant((x[1][0], x[1][1]), (point[0], point[1])))[1]
+                                # ind = test_insdie((x, y), self.boxls)
+                                x,y = length_ls[i][1]
+                                ind = test_insdie((x, y), self.boxls)
+                                x, y, w, h = self.boxls[ind]
+                                cx, cy = self.surfacels[ind]
+                                if color_mask[cy, cx] == 255:
+                                    sub_result.append((cx, cy))
+                                cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
+                                cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                                cv2.putText(draw_img1,"general",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                            
+                            '''
+                            flag is 1
+                            '''
+                            self.draw = draw_img1
+                            self.last_select = sub_result
+                            self.mode = 6
+                            #self.center = center
+                            return [sub_result, center ,6]
+                        else:
+                            self.draw = draw_img1
+                            return None
+                    
+                    else:
+                        if len(length_ls) > 0:
+                            for i in range(len(length_ls)):
                             # x,y = min(length_ls, key=lambda x: distant((x[1][0], x[1][1]), (point[0], point[1])))[1]
                             # ind = test_insdie((x, y), self.boxls)
-                            x,y = length_ls[i][1]
-                            ind = test_insdie((x, y), self.boxls)
-                            x, y, w, h = self.boxls[ind]
-                            cx, cy = self.surfacels[ind]
-                            sub_result.append((cx, cy))
-                            cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                            cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
-                            cv2.putText(draw_img1,"general",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
-                        
-                        '''
-                        flag is 1
-                        '''
-                        self.draw = draw_img1
-                        self.last_select = sub_result
-                        self.mode = 6
-                        #self.center = center
-                        return [sub_result, center ,6]
-                    else:
-                        self.draw = draw_img1
-                        return None
+                                x,y = length_ls[i][1]
+                                ind = test_insdie((x, y), self.boxls)
+                                x, y, w, h = self.boxls[ind]
+                                cx, cy = self.surfacels[ind]
+                                sub_result.append((cx, cy))
+                                cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
+                                cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                                cv2.putText(draw_img1,"general",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                            
+                            self.draw = draw_img1
+                            self.last_select = sub_result
+                            self.mode = 6
+                            #self.center = center
+                            return [sub_result, center ,6]
+                        else:
+                            self.draw = draw_img1
+                            return None
                     
 
 
@@ -535,10 +576,13 @@ class temp_tracking():
                     self.center = [list(lcenter), list(rcenter)]
                     return [[rtips[0][0], rtips[0][1]], [ltips[0][0], ltips[0][1]], [list(rcenter), list(lcenter)], 4]
 
-                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) < 4:
-                    sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
-                    center = sub_result[0][0]
-                    tips = sub_result[0][1]
+                elif max(set([lnum_tips, rnum_tips])) >= 2 and min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) < 4 and self.onehand_center:
+                    #sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
+                    sub_result = max([[rcenter, rtips], [lcenter, ltips]], key=lambda x: distant(x[0], self.onehand_center))
+                    center = sub_result[0]
+                    tips = sub_result[1]
+                    # center = sub_result[0][0]
+                    # tips = sub_result[0][1]
                     self.tip_deque.appendleft((tips[0][0], tips[0][1]))
                     self.draw = draw_img1
                     
@@ -551,10 +595,13 @@ class temp_tracking():
                         self.two_hand_mode = 5
                         return [[tips[0][0], tips[0][1]], 5]
                 
-                elif min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) == 4:
-                    sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
-                    center = sub_result[0][0]
-                    tips = sub_result[0][1]
+                elif min(set([lnum_tips, rnum_tips])) == 1 and max(set([llabel, rlabel])) == 4 and self.onehand_center:
+                    #sub_result = filter(lambda x: len(x[1]) == 1 , [[rcenter, rtips], [lcenter, ltips]])
+                    sub_result = max([[rcenter, rtips], [lcenter, ltips]], key=lambda x: distant(x[0], self.onehand_center))
+                    center = sub_result[0]
+                    tips = sub_result[1]
+                    # center = sub_result[0][0]
+                    # tips = sub_result[0][1]
                     self.tip_deque.appendleft((tips[0][0], tips[0][1]))
                     self.draw = draw_img1
                     self.mode = 1
@@ -570,7 +617,7 @@ class temp_tracking():
         if len(object_contours) > 0:
             for i , contour in enumerate(object_contours):
                 area = cv2.contourArea(contour)
-                if area>200 and area < 2000 and object_hierarchy[0, i, 3] == -1:					
+                if area>250 and area < 800 and object_hierarchy[0, i, 3] == -1:					
                     M = cv2.moments(contour)
                     cx = int(M['m10']/M['m00'])
                     cy = int(M['m01']/M['m00'])
@@ -630,12 +677,23 @@ if __name__ == '__main__':
         
         #if pos:
             #=================PICK==============#
-        if voice_flag == 9:
+        if voice_flag == 9 or voice_flag == -20:
             ready_for_place = False
             pos_N_cmd = []
             color_flag = None
             voice_flag = None
+
+            temp.tip_deque.clear()
+            temp.tip_deque1.clear()
+            temp.tip_deque2.clear()
+            temp.two_hand_mode = None
+            temp.mode = 0
+            temp.last_select = None
+            temp.center = None
+
             netsend([777, 888], need_unpack=False,flag=0)
+            temp.hand_mask = []
+            temp.onehand_center = None
         if voice_flag == 1 and not ready_for_place:
             temp.trigger = True
             pos = temp.update()
@@ -673,6 +731,10 @@ if __name__ == '__main__':
                 temp.trigger = False
                 ready_for_place = True
                 pre_length = len(pos_N_cmd)
+
+                temp.tip_deque.clear()
+                temp.tip_deque1.clear()
+                temp.tip_deque2.clear()
             #==================PLACE====================#
         elif voice_flag == 2 and ready_for_place:
             rospy.loginfo("let's go")          
@@ -680,10 +742,27 @@ if __name__ == '__main__':
             pos = temp.update()
             #print(temp.tip_deque, "deque1111")
             c = Counter(tuple(temp.tip_deque))
-            point = c.most_common(1)
-            if point[0][1] < 1:
+            point = c.most_common(2)
+            if len(point) == 0 or point[0][1] < 1:
                 rospy.logwarn("not enoght deque point")
+                ready_for_place = False
+                pos_N_cmd = []
+                color_flag = None
+                voice_flag = None
 
+                temp.tip_deque.clear()
+                temp.tip_deque1.clear()
+                temp.tip_deque2.clear()
+                temp.two_hand_mode = None
+                temp.mode = 0
+                temp.last_select = None
+                temp.center = None
+
+                netsend([777, 888], need_unpack=False,flag=0)
+                temp.hand_mask = []
+                temp.onehand_center = None
+            if len(point) > 1 and temp.pick_tip and point[0][0] == temp.pick_tip:
+                del point[0]
             if len(point) > 0:
                 rospy.loginfo("current is None")
                 rospy.loginfo("current mode: {}".format(temp.mode))
@@ -741,6 +820,7 @@ if __name__ == '__main__':
                             pos_N_cmd.append(int(cx))
                             pos_N_cmd.append(int(cy))
                     netsend(pos_N_cmd, flag=1, need_unpack=False)
+                    rospy.sleep(0.1)
                     if point[0][1] > 1:
                         pos_N_cmd.append(int(point[0][0][0]))
                         pos_N_cmd.append(int(point[0][0][1]))
@@ -796,7 +876,25 @@ if __name__ == '__main__':
                     print(pos_N_cmd, "this is published msg")
                     pub.publish(Int32MultiArray(data=pos_N_cmd))
                 else:
+                    netsend([777, 888], need_unpack=False,flag=0)
                     rospy.logwarn("fail to publish, need to have place location")
+                    ready_for_place = False
+                    pos_N_cmd = []
+                    color_flag = None
+                    voice_flag = None
+
+                    temp.tip_deque.clear()
+                    temp.tip_deque1.clear()
+                    temp.tip_deque2.clear()
+                    temp.two_hand_mode = None
+                    temp.mode = 0
+                    temp.last_select = None
+                    temp.center = None
+
+                    netsend([777, 888], need_unpack=False,flag=0)
+                    temp.hand_mask = []
+                    temp.onehand_center = None
+                voice_flag = None
                 temp.tip_deque.clear()
                 temp.tip_deque1.clear()
                 temp.tip_deque2.clear()
@@ -807,6 +905,7 @@ if __name__ == '__main__':
                 temp.mode = 0
                 temp.last_select = None
                 temp.center = None
+                temp.onehand_center = None
         elif voice_flag == -1:
             break
         else:

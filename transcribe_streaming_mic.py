@@ -23,7 +23,7 @@ CHUNK = int(RATE / 10)  # 100ms
 feedback = 0
 verbals = r'\b(attach|move|make|moves|who|attached|attack|attacked|moved|get|grab|take|what|movie|movies|pic|pics|pick|select|put)\b'
 objects = r'\b(object|item|objects|items|one|ones|cube|blocks|block|rick|rock|guys|guy|gay|gays|target|targets|it)\b'
-places = r'\b(here|there|shear|Kia|cheer|place|location|place|hear|position|gear)\b'
+places = r'\b(here|there|shear|Kia|cheer|place|location|place|hear|hair|position|gear|sure)\b'
 adjs = r'\b(yellow|green|blue|small|big|two|three)\b'
 pointings = r'\b(this|that|these|those|lease)\b'
 quiting = r'\b(exit|quit)\b'
@@ -31,7 +31,7 @@ quiting = r'\b(exit|quit)\b'
 
 ready_for_pick = False
 ready_for_place = False
-
+ready_for_color = False
 
 class MicrophoneStream(object):
     """Opens a recording stream as a generator yielding the audio chunks."""
@@ -101,6 +101,7 @@ def detect_verb(transcript):
     global verbals
     global ready_for_pick
     global ready_for_place
+    global ready_for_color
     global feedback
     if feedback == 1:
         ready_for_pick = False
@@ -224,6 +225,7 @@ def callback(msg):
 def listen_print_loop(responses):
     global ready_for_place
     global ready_for_pick
+    global ready_for_color
     num_chars_printed = 0
     pub_select = rospy.Publisher('/voice_command', Int32, queue_size=1)
     pub_color = rospy.Publisher('/item_color', String, queue_size=20)
@@ -251,10 +253,12 @@ def listen_print_loop(responses):
         elif detect_verb(transcript):
             if not ready_for_place:
                 ready_for_pick = True
-            pub_select.publish(1)
+                ready_for_color = True
+            #pub_select.publish(1)
 
-        if detect_adj(transcript) is not None and ready_for_pick:
+        if detect_adj(transcript) is not None and ready_for_color:
             pub_color.publish(detect_adj(transcript))
+            ready_for_color = False
             print(detect_adj(transcript))
 
         if (detect_pointing(transcript) or detect_object(transcript)) and ready_for_pick:
@@ -264,11 +268,12 @@ def listen_print_loop(responses):
             ready_for_place = True
             pick_time = datetime.datetime.now()
 
-        if (detect_place(transcript)) and ready_for_place:
+        if detect_place(transcript) and ready_for_place:
             print(2)
             pub_select.publish(2)
             ready_for_place = False
             ready_for_pick = False
+            ready_for_color = False
             return True
 
         current_time = datetime.datetime.now()
@@ -276,10 +281,11 @@ def listen_print_loop(responses):
             return True
 
         if pick_time is not None:
-            if (current_time - pick_time).seconds > 5:
+            if (current_time - pick_time).seconds > 20:
+                print(-20)
                 ready_for_place = False
                 ready_for_pick = False
-                pub_select.publish(0)
+                pub_select.publish(-20)
                 pick_time = None
 
         if re.search(r'\b(cancel|pencil)\b', transcript, re.I):
@@ -287,6 +293,13 @@ def listen_print_loop(responses):
             ready_for_place = False
             ready_for_pick = False
             pub_select.publish(9)
+            pick_time = None
+
+        if re.search(r'\b(stop)\b', transcript, re.I):
+            print(-9)
+            ready_for_place = False
+            ready_for_pick = False
+            pub_select.publish(-9)
             pick_time = None
 
 
@@ -301,7 +314,7 @@ def main():
         language_code=language_code,
         speech_contexts = [{"phrases":["attach","move","make","get","grab","take","pick","select","put","object","item","objects",
                                        "items","one","ones","cube","cubes","blocks","block","guys","guy","here","there","place",
-                                       "location","position","yellow","green","blue","this","that","these","those","quit","exit","targets","target",
+                                       "location","position","yellow","green","blue","this","that","these","those","targets","target",
                                        "it"]}])
     streaming_config = types.StreamingRecognitionConfig(
         config=config,

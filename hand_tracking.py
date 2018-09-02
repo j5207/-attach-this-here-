@@ -55,7 +55,7 @@ class hand_tracking():
         for i in range(len(contours)):
             cnt=contours[i]
             area = cv2.contourArea(cnt)
-            if(area>max_area):
+            if area>2000 and area < 8000:
                 cnts = contours[i]
                 
                 epsilon = 0.001*cv2.arcLength(cnt,True)
@@ -108,15 +108,47 @@ class hand_tracking():
         cv2.circle(frame_in,pt,int(max_d),(0,0,255),2)
         sub_thresh = self.mask[y:y+h, x:x+w].copy()
         mat = np.argwhere(sub_thresh != 0)
-
         mat[:, [0, 1]] = mat[:, [1, 0]]
         mat = np.array(mat).astype(np.float32) #have to convert type for PCA
         m, e = cv2.PCACompute(mat, mean = np.array([]))
         center = tuple(m[0])
-        endpoint1 = tuple(m[0] + e[0]*10)
-        #endpoint2 = tuple(m[0] + e[1]*5)
-        self.end = ((int(endpoint1[0] + x), int(endpoint1[1] + y)), (int(center[0] + x), int(center[1] + y)))
-        cv2.circle(frame_in,self.end[0],5,(0,255,255),-1)
+        center = tuple([pt[0], pt[1]])
+        rows,cols = frame_in.shape[:2]
+        [vx,vy,x,y] = cv2.fitLine(cont, cv2.DIST_L2,0,0.01,0.01)
+        cv2.line(frame_in,(x - vx * 70, y - vy * 70),(x,y),(0,255,0),2)
+        endpoint1 = (x - vx * 70, y - vy * 70)
+        # lefty = int((-x*vy/vx) + y)
+        # righty = int(((cols-x)*vy/vx)+y)
+        
+        #cv2.line(frame_in,(cols-1,righty),(0,lefty),(0,255,0),2)
+        # ec = cv2.fitEllipse(cont)
+        # (x,y),(MA,ma),angle = ec
+        # cv2.ellipse(frame_in,ec,(0, 0, 255),1)
+        # print(angle)
+        # if angle != 0:
+        #     if angle > 90:
+        #         k = math.tan(math.radians(90 + angle))
+        #         x1 = center[0] - 1/k
+        #         y1 = center[1] - 1
+        #     elif angle>0 and angle < 90:
+        #         #print("hg")
+        #         k = math.tan(math.radians(90 -angle))
+        #         x1 = center[0] - 1/k
+        #         y1 = center[1] - 1
+        # else:
+        #     x1 = center[0]
+        #     y1 = center[1] - 10
+        #endpoint1 = tuple([x1, y1])
+        #endpoint1 = tuple(m[0] + e[0]*10)
+        #endpoint1 = tuple(m[0] + k*10)
+
+        if endpoint1[0] < x:
+            self.end = (endpoint1,(x, y))
+        else:
+            self.end = ((x, y), endpoint1)
+        #self.end = ((int(endpoint1[0] + x), int(endpoint1[1] + y)), (int(center[0] + x), int(center[1] + y)))
+        #cv2.circle(frame_in,self.end[0],5,(0,255,255),-1)
+        #cv2.circle(frame_in,self.end[1],5,(0,255,255),-1)
         #print(len(cont))
         for [cnt_pts] in cont:
             self.cnt_pts.append(distant(cnt_pts, pt))
@@ -151,7 +183,7 @@ class hand_tracking():
         return frame_in,finger
 def warp(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[169,57],[559,69],[168,281],[537,300]])
+    pts1 = np.float32([[206,138],[577,114],[208,355],[596,347]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
