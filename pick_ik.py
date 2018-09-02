@@ -32,7 +32,7 @@ import cv2
 
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-SPEED = 5
+SPEED = 4
 # , [0.340,-0.261], [449, 103]
 
 def coord_converter(x, y):
@@ -114,8 +114,8 @@ class pick_place:
             rospy.logwarn("this goal canceled")
     
     def single_exuete(self, position, mode):
-        offset = 0.01
-        offset1 = 0
+        offset = 0.005
+        offset1 = 0.02
         position_copy = deepcopy(position)
         if position_copy[0] < 0:
             position_copy += [0.19]
@@ -123,8 +123,8 @@ class pick_place:
             position_copy += [0.192]
         position_copy[1] = position_copy[1] + offset
         position_copy[0] = position_copy[0] + offset1
-        pre_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.2])
-        post_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.2])
+        pre_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.08])
+        post_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.08])
         grasp_position = self.define_grasp(position_copy)
         rospy.loginfo("let's go to the pre location")
         self.move(pre_position)

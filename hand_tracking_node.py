@@ -159,6 +159,8 @@ class temp_tracking():
     global gesture_id
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        self.out = cv2.VideoWriter('G3_01123.avi',fourcc, 20.0, (640,480))
         self.hand_mask = []
         self.trigger = False
         self.after_trigger = False
@@ -234,6 +236,7 @@ class temp_tracking():
         if OK:
             #print(self.mode)
             rect = camrectify(origin)
+            self.out.write(rect)
             # rect = cv2.flip(rect,0)
             # rect = cv2.flip(rect,1)
             warp = warp_img(rect)
@@ -379,7 +382,7 @@ class temp_tracking():
                         for x, y, w, h in self.boxls:
                             length_ls.append((get_k_dis((point[0], point[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
                         length_ls = filter(lambda x: (point[1] - x[1][1]) * (point[1] - center[1]) <= 0, length_ls)
-                        length_ls = filter(lambda x: x[0] < 20, length_ls)
+                        length_ls = filter(lambda x: x[0] < 30, length_ls)
                         if len(length_ls) > 0:
                             x,y = min(length_ls, key=lambda x: distant((x[1][0], x[1][1]), (point[0], point[1])))[1]
                             ind = test_insdie((x, y), self.boxls)
@@ -650,6 +653,7 @@ class temp_tracking():
 
     def __del__(self):
         self.cap.release()
+        self.out.release()
 
 def callback(msg):
     #print(msg.data)
@@ -694,6 +698,8 @@ if __name__ == '__main__':
             netsend([777, 888], need_unpack=False,flag=0)
             temp.hand_mask = []
             temp.onehand_center = None
+        if voice_flag == -9:
+            netsend([777, 888], need_unpack=False,flag=-99)
         if voice_flag == 1 and not ready_for_place:
             temp.trigger = True
             pos = temp.update()
@@ -785,11 +791,13 @@ if __name__ == '__main__':
                         pos_N_cmd.append(int(point[0][0][0]))
                         pos_N_cmd.append(int(point[0][0][1]))
                     temp.hand_mask = []
-                    temp.trigger = True
+                    #temp.trigger = True
                 
 
                 elif temp.mode == 5 and len(temp.hand_mask) > 0:
                     rospy.loginfo("two hand one multi one finger place")
+                    if point[0][1] > 1:
+                        netsend([int(point[0][0][0]),int(point[0][0][1])], flag=-10, need_unpack=False)
                     rospy.sleep(5)
                     image = temp.get_current_frame()
                     object_mask = get_objectmask(image)
