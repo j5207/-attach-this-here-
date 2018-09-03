@@ -78,6 +78,7 @@ class projector():
 if __name__ == '__main__':
     proj = projector()
     temp = 0
+    command_coor = 0
     while True:
         if proj.pos:
             temp_pos = proj.pos
@@ -91,6 +92,7 @@ if __name__ == '__main__':
                 except IndexError:
                     print(i)
                     print(temp_pos)
+                    raise IndexError
                 cv2.imshow('projector1' , proj.img)
                 cv2.waitKey(1)
 
@@ -146,10 +148,16 @@ if __name__ == '__main__':
                     img = draw_x(img,int(325*1600/640),int(350*900/480 - 20), 40)
                     img = draw_arrow(img, int(1600*500/640), int(250*900/480), int(1600*325/640),int(350*900/480 - 20),5)
                     cv2.imshow("projector1", img)
-                    cv2.waitKey(10000)
+                    cv2.waitKey(0)
                     proj.img = np.zeros((900, 1600, 3), np.uint8)
                     cv2.imshow('projector1' , proj.img)
-                    cv2.waitKey(1)
+                    cv2.waitKey(0)
+                    img = np.zeros((900, 1600, 3), np.uint8) * 255
+                    cv2.circle(img, (int(1600*500/640),int(250*900/480)), 40, (255, 255, 255), -1)
+                    img = draw_x(img,int(325*1600/640),int(350*900/480 - 20), 40)
+                    img = draw_arrow(img, int(1600*500/640), int(250*900/480), int(1600*325/640),int(350*900/480 - 20),5)
+                    cv2.imshow("projector1", img)
+                    cv2.waitKey(5000)
                     proj.flag = 2
                     
 
@@ -161,10 +169,18 @@ if __name__ == '__main__':
                     img = draw_x(img,int(325*1600/640),int(350*900/480 - 20), 40)
                     img = draw_arrow(img, int(1600*200/640+75), int(250*900/480), int(1600*325/640),int(350*900/480 - 20),5)
                     cv2.imshow("projector1", img)
-                    cv2.waitKey(10000)
+                    cv2.waitKey(0)
                     proj.img = np.zeros((900, 1600, 3), np.uint8)
                     cv2.imshow('projector1' , proj.img)
-                    cv2.waitKey(1)
+                    cv2.waitKey(0)
+                    img = np.zeros((900, 1600, 3), np.uint8) * 255
+                    cv2.circle(img, (int(1600*200/640),int(250*900/480)), 40, (255, 255, 255), -1)
+                    cv2.circle(img, (int(1600*200/640+150),int(250*900/480)), 40, (255, 255, 255), -1)
+                    cv2.circle(img, (int(1600*200/640+75),int(250*900/480+80)), 40, (255, 255, 255), -1)
+                    img = draw_x(img,int(325*1600/640),int(350*900/480 - 20), 40)
+                    img = draw_arrow(img, int(1600*200/640+75), int(250*900/480), int(1600*325/640),int(350*900/480 - 20),5)
+                    cv2.imshow("projector1", img)
+                    cv2.waitKey(5000)
                     proj.flag = 3
 
                 elif proj.flag == 3:
@@ -173,10 +189,16 @@ if __name__ == '__main__':
                     img = draw_x(img,int(325*1600/640),int(350*900/480 - 20), 40)
                     img = draw_arrow(img, int(1600*150/640 + 50), int(150*900/480 + 20), int(1600*325/640),int(350*900/480 - 20),5)
                     cv2.imshow("projector1", img)
-                    cv2.waitKey(10000)
+                    cv2.waitKey(0)
                     proj.img = np.zeros((900, 1600, 3), np.uint8)
                     cv2.imshow('projector1' , proj.img)
-                    cv2.waitKey(1)
+                    cv2.waitKey(0)
+                    img = np.zeros((900, 1600, 3), np.uint8) * 255
+                    cv2.circle(img, (int(1600*150/640 +50),int(150*900/480)), 120, (255, 255, 255), 5)
+                    img = draw_x(img,int(325*1600/640),int(350*900/480 - 20), 40)
+                    img = draw_arrow(img, int(1600*150/640 + 50), int(150*900/480 + 20), int(1600*325/640),int(350*900/480 - 20),5)
+                    cv2.imshow("projector1", img)
+                    cv2.waitKey(5000)
                     proj.flag = 4
 
                 elif proj.flag == 4:
@@ -185,10 +207,16 @@ if __name__ == '__main__':
                     img = draw_x(img,int(325*1600/640),int(350*900/480 - 20), 40)
                     img = draw_arrow(img, int(1600*400/640 + 40), int(300*900/480), int(1600*325/640),int(350*900/480 - 20),5)
                     cv2.imshow("projector1", img)
-                    cv2.waitKey(10000)
+                    cv2.waitKey(0)
                     proj.img = np.zeros((900, 1600, 3), np.uint8)
                     cv2.imshow('projector1' , proj.img)
-                    cv2.waitKey(1)
+                    cv2.waitKey(0)
+                    img = np.zeros((900, 1600, 3), np.uint8) * 255
+                    cv2.circle(img, (int(1600*400/640 + 40),int(300*900/480)), 120, (255, 255, 255), 5)
+                    img = draw_x(img,int(325*1600/640),int(350*900/480 - 20), 40)
+                    img = draw_arrow(img, int(1600*400/640 + 40), int(300*900/480), int(1600*325/640),int(350*900/480 - 20),5)
+                    cv2.imshow("projector1", img)
+                    cv2.waitKey(5000)
                     proj.flag = 5
 
                 elif proj.flag == 5:
@@ -198,17 +226,32 @@ if __name__ == '__main__':
                     img = draw_x(img,int(325*1600/640),int(350*900/480 - 20), 40)
                     img = draw_arrow(img, int(1600*275/640+75), int(190*900/480), int(1600*325/640),int(350*900/480 - 20),5)
                     cv2.imshow("projector1", img)
-                    cv2.waitKey(10000)
+                    cv2.waitKey(0)
                     proj.img = np.zeros((900, 1600, 3), np.uint8)
                     cv2.imshow('projector1' , proj.img)
-                    cv2.waitKey(1)
+                    cv2.waitKey(0)
+                    img = np.zeros((900, 1600, 3), np.uint8) * 255
+                    cv2.circle(img, (int(1600*275/640),int(190*900/480)), 40, (255, 255, 255), -1)
+                    cv2.circle(img, (int(1600*275/640+150),int(190*900/480)), 40, (255, 255, 255), -1)
+                    img = draw_x(img,int(325*1600/640),int(350*900/480 - 20), 40)
+                    img = draw_arrow(img, int(1600*275/640+75), int(190*900/480), int(1600*325/640),int(350*900/480 - 20),5)
+                    cv2.imshow("projector1", img)
+                    cv2.waitKey(5000)
                     proj.flag = 0
 
             elif temp_coor == 0:
                 proj.pick_start = False
+                proj.place_finish = False
+                proj.multar = None
+                proj.evenx = 0
+                proj.eveny = 0
                 proj.img = np.ones((900, 1600, 3), np.uint8) * 255
                 cv2.imshow('projector1' , proj.img)
+                cv2.waitKey(2000)
+                proj.img = np.zeros((900, 1600, 3), np.uint8)
+                cv2.imshow('projector1' , proj.img)
                 cv2.waitKey(1)
+                proj.coor = -1
 
             elif temp_coor == -8:
                 rospy.loginfo("circle pos:{}".format(temp_pos))
@@ -218,6 +261,16 @@ if __name__ == '__main__':
                     cv2.ellipse(proj.img, (temp_pos[0], temp_pos[1]), (1600*100/640,100*900/480), 0,0,360,(255, 255, 255), 5)
                 cv2.imshow('projector1' , proj.img)
                 cv2.waitKey(1)
+            
+            elif temp_coor == -10:
+                rospy.loginfo("cross pos:{}".format(temp_pos))
+                for i in range(int(len(temp_pos) / 2)):
+                    proj.img = draw_x(proj.img,temp_pos[2*i],temp_pos[2*i + 1], 40) 
+                cv2.imshow('projector1' , proj.img)
+                cv2.waitKey(1)
+
+            elif temp_coor == -99:
+                proj.flag = proj.flag -1
             
             else:
                 cv2.imshow('projector1' , proj.img)
