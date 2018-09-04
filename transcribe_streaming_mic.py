@@ -281,7 +281,7 @@ def listen_print_loop(responses):
             return True
 
         if pick_time is not None:
-            if (current_time - pick_time).seconds > 20:
+            if (current_time - pick_time).seconds > 5:
                 print(-20)
                 ready_for_place = False
                 ready_for_pick = False

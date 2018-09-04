@@ -32,9 +32,26 @@ import cv2
 
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-SPEED = 4
+SPEED = 3
+pro_pub = rospy.Publisher('/netsend', Int32MultiArray, queue_size=1)
 # , [0.340,-0.261], [449, 103]
-
+def netsend(msg, flag=-1, need_unpack=True):
+    global pro_pub, gesture_id
+    if msg:
+        if flag != 1:
+            rospy.loginfo("flag is {}. msg is {}".format(flag, msg))
+        if need_unpack:
+            send = []
+            for i in range(len(msg)):
+                send.append(int(msg[i][0]))
+                send.append(int(msg[i][1]))
+            a = deepcopy(send)
+            a.append(flag)
+        else:
+            a = deepcopy(msg)
+            a.append(flag)
+        pro_pub.publish(Int32MultiArray(data=a))
+    
 def coord_converter(x, y):
     # pts1 = np.array([[138, 133], [281, 133], [429, 130], [134, 271], [280, 251], [417, 260], [137, 391], [274, 381]])
     # pts2 = np.array([[0.391, -0.319], [0.557, -0.337], [0.719, -0.355], [0.386, -0.496], [0.557, -0.489], [0.707, -0.470], [0.379, -0.640], [0.541, -0.641]])
@@ -176,6 +193,7 @@ class pick_place:
                 self.joints_pos_start = np.array(joint_states)
 
                 self.client.wait_for_result()
+                netsend([777, 888], need_unpack=False,flag=-99)
                 # rospy.loginfo("go to init because goal canceled")
                 # rest_position = self.define_grasp([0.405, 0.010, 0.342])
                 # self.move(rest_position)
