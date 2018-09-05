@@ -103,8 +103,8 @@ def get_yellow_objectmask(img):
 #     return mask
 def get_handmask(frame, center):
     surface = np.zeros((480, 640), dtype=np.uint8)
-    temp_center = (center[0], center[1] - 30)
-    cv2.circle(surface, temp_center, 60, (255), -1)
+    temp_center = (center[0], center[1] - 50)
+    cv2.circle(surface, temp_center, 70, (255), -1)
     return surface
 
 def get_k_dis((x1, y1), (x2, y2), (x, y)):
@@ -242,7 +242,7 @@ class temp_tracking():
             # rect = cv2.flip(rect,1)
             warp = warp_img(rect)
             thresh = get_objectmask(warp)
-            cv2.imshow('thresh', thresh)
+            #cv2.imshow('thresh', thresh)
             self.image = warp.copy()
             draw_img1 = warp.copy()
             self.get_bound(draw_img1, thresh, visualization=True)
@@ -336,8 +336,10 @@ class temp_tracking():
                         object_mask = get_objectmask(deepcopy(self.image))
                         if color_flag == "yellow":
                             color_mask = get_yellow_objectmask(deepcopy(self.image))
+                            netsend([777,888], need_unpack=False, flag=-200)
                         elif color_flag == "blue":
                             color_mask = get_blue_objectmask(deepcopy(self.image))
+                            netsend([777,888], need_unpack=False, flag=-100)
                         # elif color_flag == "green":
                         #     color_mask = get_green_objectmask(deepcopy(self.image))
                         mask = self.hand_mask[0]
@@ -778,12 +780,13 @@ if __name__ == '__main__':
             c = Counter(tuple(temp.tip_deque))
             point1 = c.most_common(3)
             point = []
-            if pick_tip and temp.two_hand_mode != 4:
+            if pick_tip and temp.two_hand_mode is None:
                 for i in range(len(point1)):
                     if distant(point1[i][0],pick_tip) > 10:
                         rospy.loginfo("append a tip")                   
                         point.append(point1[i])
             else:
+                rospy.loginfo("not append a tip")
                 point = point1
             # if temp.pick_tip and distant(point[0][0],pick_tip) < 10:
             #     del point[0]
@@ -919,9 +922,9 @@ if __name__ == '__main__':
                         elif ind == 1:
                             c = Counter(list(temp.tip_deque2))
                             point = c.most_common(1)
-
-                        pos_N_cmd.append(int(point[0][0][0]))
-                        pos_N_cmd.append(int(point[0][0][1]))
+                        if len(point) > 0 and point[0][1] > 1:
+                            pos_N_cmd.append(int(point[0][0][0]))
+                            pos_N_cmd.append(int(point[0][0][1]))
                 pick_handcenter = None
                 temp.after_trigger = False
                 #netsend(pos_N_cmd)

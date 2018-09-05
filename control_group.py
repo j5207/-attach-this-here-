@@ -133,6 +133,7 @@ class control_gui():
             self.get_bound(draw_img1, thresh)
             for i, (cx, cy) in enumerate(self.selected):
                 cv2.circle(draw_img1, (cx, cy), 5, (255, 0, 0), -1)
+            cv2.putText(draw_img1, str(len(self.selected)),(50,50), cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,123,123), 3)
             if len(self.location) > 0:
                 cx, cy = self.location
                 cv2.circle(draw_img1, (cx, cy), 5, (0, 255, 0), -1)
@@ -140,7 +141,7 @@ class control_gui():
             cv2.imshow('gui', self.temp_surface)
 
     def gui_callback(self, event, x, y, flags, param):
-        if event == cv2.EVENT_LBUTTONDBLCLK and len(self.location) == 0:
+        if event == cv2.EVENT_LBUTTONUP and len(self.location) == 0:
             ind = test_insdie((x, y), self.boxls)
             if ind is not None:
                 cx, cy = self.surfacels[ind]
@@ -154,7 +155,7 @@ class control_gui():
                 self.location.append(y)
                 rospy.loginfo("append destination : {}, {}".format(x, y))
         
-        if event == cv2.EVENT_LBUTTONDBLCLK and (self.temp_surface[y, x] == np.array([0, 0, 255])).all():
+        if event == cv2.EVENT_LBUTTONUP and (self.temp_surface[y, x] == np.array([0, 0, 255])).all():
             #netsend(self.location, flag=2, need_unpack=False)
             ls = []
             for cx, cy in set(self.selected):
@@ -170,7 +171,7 @@ class control_gui():
             self.selected = []
             self.location = []
         
-        if event == cv2.EVENT_LBUTTONDBLCLK and (self.temp_surface[y, x] == np.array([0, 0, 254])).all():
+        if event == cv2.EVENT_LBUTTONUP and (self.temp_surface[y, x] == np.array([0, 0, 254])).all():
             rospy.loginfo("Cancel all info")
             #netsend([777, 888], need_unpack=False,flag=0)
             self.command = []
