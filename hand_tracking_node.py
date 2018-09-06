@@ -35,7 +35,7 @@ gesture_id = None
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[206,138],[577,114],[208,355],[596,347]])
+    pts1 = np.float32([[213,140],[581,129],[206,355],[594,360]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
@@ -211,8 +211,8 @@ class temp_tracking():
             #     out = np.argmax(net(img_variable).cpu().data.numpy()[0])
             # else:
             #     out = -1
-        cv2.rectangle(draw_img,(x,y),(x+w,y+h),(0,0,255),2)
-        cv2.putText(draw_img,str(out + 1),(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+        #cv2.rectangle(draw_img,(x,y),(x+w,y+h),(255, 0, 0),2)
+        #cv2.putText(draw_img,str(out + 1),(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
         gesture_id = int(out +1)
         return int(out) + 1
 
@@ -237,12 +237,12 @@ class temp_tracking():
         if OK:
             #print(self.mode)
             rect = camrectify(origin)
-            self.out.write(rect)
+            # self.out.write(rect)
             # rect = cv2.flip(rect,0)
             # rect = cv2.flip(rect,1)
             warp = warp_img(rect)
             thresh = get_objectmask(warp)
-            #cv2.imshow('thresh', thresh)
+            cv2.imshow('thresh', thresh)
             self.image = warp.copy()
             draw_img1 = warp.copy()
             self.get_bound(draw_img1, thresh, visualization=True)
@@ -318,6 +318,11 @@ class temp_tracking():
                 radius = result[0][2]
                 box = result[0][3]
                 fake_tip, fake_center = result[0][4]
+                app = result[0][5]
+                cv2.drawContours(draw_img1, [app],-1,(255, 0, 0),1)
+                for k in range(len(tips)):
+                    cv2.circle(draw_img1,tips[k],10,(255, 0, 0),2)
+                    cv2.line(draw_img1,tips[k],center,(255, 0, 0),2)
                 num_tips = len(tips)
                 label = self.test(box, draw_img1)
                 self.onehand_center = center
@@ -396,8 +401,8 @@ class temp_tracking():
                             x, y, w, h = self.boxls[ind]
                             cx, cy = self.surfacels[ind]
                             cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                            cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
-                            cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                            #cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                            #cv2.putText(draw_img1,"pointed",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                             
                             '''
                             flag is 1
@@ -435,7 +440,7 @@ class temp_tracking():
                         #rx, ry = int(x+w/2), int(y+h/2)
                         del boxls[rind]
                         cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                        cv2.putText(draw_img1,"pointed_right",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                        #cv2.putText(draw_img1,"pointed_right",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                         if len(boxls) > 0:
                             for x, y, w, h in boxls:
                                 length_lsl.append((get_k_dis((lpoint[0], lpoint[1]), (center[0], center[1]), (x+w/2, y+h/2)), (x+w/2, y+h/2)))
@@ -448,7 +453,7 @@ class temp_tracking():
                                 x, y, w, h = boxls[lind]
                                 #lx, ly = int(x+w/2), int(y+h/2)
                                 cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                                cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                                #cv2.putText(draw_img1,"pointed_left",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                                 '''
                                 flag is 2
                                 '''
@@ -516,8 +521,8 @@ class temp_tracking():
                                 if color_mask[cy, cx] == 255:
                                     sub_result.append((cx, cy))
                                 cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                                cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
-                                cv2.putText(draw_img1,"general",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                                #cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                                #cv2.putText(draw_img1,"general",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                             
                             '''
                             flag is 1
@@ -543,8 +548,8 @@ class temp_tracking():
                                 cx, cy = self.surfacels[ind]
                                 sub_result.append((cx, cy))
                                 cv2.rectangle(draw_img1,(x,y),(x+w,y+h),(0,0,255),2)
-                                cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
-                                cv2.putText(draw_img1,"general",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
+                                #cv2.circle(draw_img1, (cx, cy), 5, (0, 0, 255), -1)
+                                #cv2.putText(draw_img1,"general",(x,y),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,0,255))
                             netsend(sub_result, need_unpack=True)
                             self.draw = draw_img1
                             self.last_select = sub_result
@@ -573,6 +578,11 @@ class temp_tracking():
                 lradius = result[0][2]
                 lbox = result[0][3]
                 llabel = self.test(lbox, draw_img1) 
+                app = result[0][5]
+                cv2.drawContours(draw_img1, [app],-1,(255, 0, 0),1)
+                for k in range(len(ltips)):
+                    cv2.circle(draw_img1,ltips[k],10,(255, 0, 0),2)
+                    cv2.line(draw_img1,ltips[k],lcenter,(255, 0, 0),2)
 
                 rcenter = result[1][0]
                 rtips = result[1][1]
@@ -580,6 +590,11 @@ class temp_tracking():
                 rradius = result[1][2]
                 rbox = result[1][3]
                 rlabel = self.test(rbox, draw_img1)
+                lapp = result[1][5]
+                cv2.drawContours(draw_img1, [lapp],-1,(255, 0, 0),1)
+                for k in range(len(rtips)):
+                    cv2.circle(draw_img1,rtips[k],10,(255, 0, 0),2)
+                    cv2.line(draw_img1,rtips[k],rcenter,(255, 0, 0),2)
                 # '''
                 # two hand is both one finger pointing, ONLY PLACE
                 # '''
@@ -649,7 +664,7 @@ class temp_tracking():
             self.boxls = boxls_arr[boxls_arr[:, 0].argsort()].tolist()
             sur_array = boxls_arr = np.array(self.surfacels)
             self.surfacels = sur_array[boxls_arr[:, 0].argsort()].tolist()
-            #print(self.surfacels)
+            print(self.surfacels)
 
         # for x, y, w, h in self.boxls:
         #     sub = image[y:y+h, x:x+w, :]
@@ -952,6 +967,7 @@ if __name__ == '__main__':
         else:
             pos = temp.update()
             #netsend(temp.last_select)
+        temp.out.write(temp.draw)
         cv2.imshow('node',temp.draw)
         k = cv2.waitKey(1) & 0xFF # large wait time to remove freezing
         if k == 113 or k == 27:

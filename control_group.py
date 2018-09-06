@@ -34,7 +34,7 @@ pro_pub = rospy.Publisher('/netsend', Int32MultiArray, queue_size=1)
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[206,139],[577,110],[212,355],[599,341]])
+    pts1 = np.float32([[212,140],[585,127],[206,354],[595,362]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))

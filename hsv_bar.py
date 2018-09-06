@@ -36,7 +36,7 @@ cv2.createTrackbar('highV','image',ihighV,255,callback)
 while(True):
     # grab the frame
     ret, frame = cap.read()
-    frame = warp(frame)
+    #frame = warp(frame)
     # get trackbar positions
     ilowH = cv2.getTrackbarPos('lowH', 'image')
     ihighH = cv2.getTrackbarPos('highH', 'image')

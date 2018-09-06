@@ -50,6 +50,7 @@ class hand_tracking():
         self.center = None
         self.angle = None
         self.twoangle = None
+        self.cnt = None
         max_area = 1000
         # try:	
         for i in range(len(contours)):
@@ -60,6 +61,7 @@ class hand_tracking():
                 
                 epsilon = 0.001*cv2.arcLength(cnt,True)
                 approx = cv2.approxPolyDP(cnt,epsilon,True)
+                self.cnt = approx
                 hull = cv2.convexHull(cnts)
                 frame,hand_center,hand_radius = self.mark_hand_center(frame, cnts)
                 
@@ -174,7 +176,7 @@ class hand_tracking():
 
         finger = filter(lambda x: x[1] < cy, finger)
         finger = filter(lambda x: np.sqrt((x[0]- cx)**2 + (x[1] - cy)**2) > 1.7 * radius, finger)
-        self.result.append([(cx, cy), finger, radius, self.box, self.end])
+        self.result.append([(cx, cy), finger, radius, self.box, self.end, self.cnt])
     
 
         for k in range(len(finger)):
