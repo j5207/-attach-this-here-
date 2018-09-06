@@ -134,7 +134,7 @@ class pick_place:
     
     def single_exuete(self, position, mode):
         offset = 0.015
-        offset1 = 0.02
+        offset1 = 0.005
         position_copy = deepcopy(position)
         if position_copy[0] < 0:
             position_copy += [0.19]
@@ -143,7 +143,7 @@ class pick_place:
             position_copy += [0.192]
             position_copy[1] = position_copy[1]
         # position_copy[1] = position_copy[1] + offset
-        # position_copy[0] = position_copy[0] + offset1
+        position_copy[0] = position_copy[0] + offset1
         pre_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.1])
         post_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.1])
         grasp_position = self.define_grasp(position_copy)

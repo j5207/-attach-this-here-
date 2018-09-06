@@ -56,7 +56,7 @@ class hand_tracking():
         for i in range(len(contours)):
             cnt=contours[i]
             area = cv2.contourArea(cnt)
-            if area>2000 and area < 8000:
+            if area>2000 and area < 10000:
                 cnts = contours[i]
                 
                 epsilon = 0.001*cv2.arcLength(cnt,True)
