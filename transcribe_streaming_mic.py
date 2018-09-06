@@ -21,7 +21,7 @@ from std_msgs.msg import String
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
 feedback = 0
-verbals = r'\b(attach|move|make|moves|who|attached|attack|attacked|moved|get|grab|take|what|movie|movies|pic|pics|pick|select|put)\b'
+verbals = r'\b(attach|move|make|moves|who|attached|attack|attacked|moved|get|grab|take|what|movie|movies|pic|pics|pick|select|put|transport)\b'
 objects = r'\b(object|item|objects|items|one|ones|cube|blocks|block|rick|rock|guys|guy|gay|gays|target|targets|it)\b'
 places = r'\b(here|there|shear|Kia|cheer|place|location|place|hear|hair|position|gear|sure)\b'
 adjs = r'\b(yellow|green|blue|small|big|two|three)\b'
@@ -281,7 +281,7 @@ def listen_print_loop(responses):
             return True
 
         if pick_time is not None:
-            if (current_time - pick_time).seconds > 20:
+            if (current_time - pick_time).seconds > 5:
                 print(-20)
                 ready_for_place = False
                 ready_for_pick = False
@@ -315,7 +315,7 @@ def main():
         speech_contexts = [{"phrases":["attach","move","make","get","grab","take","pick","select","put","object","item","objects",
                                        "items","one","ones","cube","cubes","blocks","block","guys","guy","here","there","place",
                                        "location","position","yellow","green","blue","this","that","these","those","targets","target",
-                                       "it"]}])
+                                       "it", "transport"]}])
     streaming_config = types.StreamingRecognitionConfig(
         config=config,
         interim_results=True)

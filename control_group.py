@@ -34,7 +34,7 @@ pro_pub = rospy.Publisher('/netsend', Int32MultiArray, queue_size=1)
 
 def warp_img(img):
     #pts1 = np.float32([[115,124],[520,112],[2,476],[640,480]])
-    pts1 = np.float32([[206,139],[577,110],[212,355],[599,341]])
+    pts1 = np.float32([[212,140],[585,127],[206,354],[595,362]])
     pts2 = np.float32([[0,0],[640,0],[0,480],[640,480]])
     M = cv2.getPerspectiveTransform(pts1,pts2)
     dst = cv2.warpPerspective(img,M,(640,480))
@@ -86,6 +86,17 @@ def netsend(msg, flag=-1, need_unpack=True):
         pro_pub.publish(Int32MultiArray(data=a))
 
 
+# def filter_dest(ls):
+#     new_ls = []
+#     for i in range(len(ls)):
+#         cx, cy = ls[i]
+#         for j in range(i+1, len(ls)):
+#             lx, ly = ls[j]
+#             if distant((cx, cy), (lx, ly)) < 10:
+#                 break
+        
+                
+        
 
 
 
@@ -95,6 +106,8 @@ class control_gui():
     def __init__(self):
         rospy.init_node('control_group')
         self.cap = cv2.VideoCapture(0)
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        self.out = cv2.VideoWriter('G2_01123.avi',fourcc, 20.0, (640,480))
         cv2.namedWindow('gui')
         cv2.setMouseCallback('gui',self.gui_callback)
         self.command = []
@@ -111,6 +124,7 @@ class control_gui():
         OK, origin = self.cap.read()
         if OK:
             rect = camrectify(origin)
+            self.out.write(rect)
             warp = warp_img(rect)
             thresh = get_objectmask(warp)
             #cv2.imshow("dd", thresh)
@@ -119,6 +133,7 @@ class control_gui():
             self.get_bound(draw_img1, thresh)
             for i, (cx, cy) in enumerate(self.selected):
                 cv2.circle(draw_img1, (cx, cy), 5, (255, 0, 0), -1)
+            cv2.putText(draw_img1, str(len(self.selected)),(50,50), cv2.FONT_HERSHEY_SIMPLEX, 1.0,(0,123,123), 3)
             if len(self.location) > 0:
                 cx, cy = self.location
                 cv2.circle(draw_img1, (cx, cy), 5, (0, 255, 0), -1)
@@ -133,7 +148,7 @@ class control_gui():
                 self.command.append(cx)
                 self.command.append(cy)
                 self.selected.append((cx, cy))
-                netsend(self.command, flag=1, need_unpack=False)
+                
                 rospy.loginfo("append target : {}, {}".format(cx, cy))
             elif ind is None and len(self.selected) > 0:
                 self.location.append(x)
@@ -141,20 +156,24 @@ class control_gui():
                 rospy.loginfo("append destination : {}, {}".format(x, y))
         
         if event == cv2.EVENT_LBUTTONUP and (self.temp_surface[y, x] == np.array([0, 0, 255])).all():
-            netsend(self.location, flag=2, need_unpack=False)
-            self.command += self.location
-            rospy.loginfo("publishing msg : {}".format(self.command))
-            # netsend(self.command[:-2], flag=1, need_unpack=False)
-            # rospy.sleep(0.3)
-            # netsend(self.command[-2:], flag=2, need_unpack=False)
-            self.pub.publish(Int32MultiArray(data=self.command))
+            #netsend(self.location, flag=2, need_unpack=False)
+            ls = []
+            for cx, cy in set(self.selected):
+                ls.append(cx)
+                ls.append(cy)
+            ls += self.location
+            rospy.loginfo("publishing msg : {}".format(ls))
+            netsend(ls[:-2], flag=1, need_unpack=False)
+            rospy.sleep(0.3)
+            netsend(ls[-2:], flag=2, need_unpack=False)
+            self.pub.publish(Int32MultiArray(data=ls))
             self.command = []
             self.selected = []
             self.location = []
         
         if event == cv2.EVENT_LBUTTONUP and (self.temp_surface[y, x] == np.array([0, 0, 254])).all():
             rospy.loginfo("Cancel all info")
-            netsend([777, 888], need_unpack=False,flag=0)
+            #netsend([777, 888], need_unpack=False,flag=0)
             self.command = []
             self.selected = []
             self.location = []
