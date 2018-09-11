@@ -103,7 +103,7 @@ def get_yellow_objectmask(img):
 #     return mask
 def get_handmask(frame, center):
     surface = np.zeros((480, 640), dtype=np.uint8)
-    temp_center = (center[0], center[1] - 50)
+    temp_center = (center[0], center[1] - 30)
     cv2.circle(surface, temp_center, 70, (255), -1)
     return surface
 
@@ -664,7 +664,7 @@ class temp_tracking():
             self.boxls = boxls_arr[boxls_arr[:, 0].argsort()].tolist()
             sur_array = boxls_arr = np.array(self.surfacels)
             self.surfacels = sur_array[boxls_arr[:, 0].argsort()].tolist()
-            print(self.surfacels)
+            #print(self.surfacels)
 
         # for x, y, w, h in self.boxls:
         #     sub = image[y:y+h, x:x+w, :]
