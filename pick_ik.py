@@ -133,8 +133,8 @@ class pick_place:
             rospy.logwarn("this goal canceled")
     
     def single_exuete(self, position, mode):
-        offset = 0.015
-        offset1 = 0.005
+        offset = -0.005
+        offset1 = 0.015
         position_copy = deepcopy(position)
         if position_copy[0] < 0:
             position_copy += [0.19]
@@ -142,7 +142,7 @@ class pick_place:
         else:
             position_copy += [0.192]
             position_copy[1] = position_copy[1]
-        # position_copy[1] = position_copy[1] + offset
+        position_copy[1] = position_copy[1] + offset
         position_copy[0] = position_copy[0] + offset1
         pre_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.1])
         post_position = self.define_grasp([position_copy[0], position_copy[1], position_copy[2] + 0.1])

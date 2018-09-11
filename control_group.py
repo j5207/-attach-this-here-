@@ -186,7 +186,7 @@ class control_gui():
         if len(object_contours) > 0:
             for i , contour in enumerate(object_contours):
                 area = cv2.contourArea(contour)
-                if area>250 and area < 800 and object_hierarchy[0, i, 3] == -1:					
+                if area>150 and area < 800 and object_hierarchy[0, i, 3] == -1:					
                     M = cv2.moments(contour)
                     cx = int(M['m10']/M['m00'])
                     cy = int(M['m01']/M['m00'])

@@ -21,7 +21,7 @@ from std_msgs.msg import String
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
 feedback = 0
-verbals = r'\b(attach|move|make|moves|who|attached|attack|attacked|moved|get|grab|take|what|movie|movies|pic|pics|pick|select|put|transport)\b'
+verbals = r'\b(attach|move|make|moves|who|attached|attack|attacked|moved|get|grab|take|what|movie|movies|pic|pics|pick|select|put|transport|place)\b'
 objects = r'\b(object|item|objects|items|one|ones|cube|blocks|block|rick|rock|guys|guy|gay|gays|target|targets|it)\b'
 places = r'\b(here|there|shear|Kia|cheer|place|location|place|hear|hair|position|gear|sure)\b'
 adjs = r'\b(yellow|green|blue|small|big|two|three)\b'
@@ -281,7 +281,7 @@ def listen_print_loop(responses):
             return True
 
         if pick_time is not None:
-            if (current_time - pick_time).seconds > 5:
+            if (current_time - pick_time).seconds > 8:
                 print(-20)
                 ready_for_place = False
                 ready_for_pick = False

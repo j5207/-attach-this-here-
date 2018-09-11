@@ -652,7 +652,7 @@ class temp_tracking():
         if len(object_contours) > 0:
             for i , contour in enumerate(object_contours):
                 area = cv2.contourArea(contour)
-                if area>250 and area < 800 and object_hierarchy[0, i, 3] == -1:					
+                if area>100 and area < 800 and object_hierarchy[0, i, 3] == -1:					
                     M = cv2.moments(contour)
                     cx = int(M['m10']/M['m00'])
                     cy = int(M['m01']/M['m00'])
@@ -847,7 +847,7 @@ if __name__ == '__main__':
                         pos_N_cmd.append(cx)
                         pos_N_cmd.append(cy)
                     netsend(pos_N_cmd, flag=1, need_unpack=False)
-                    rospy.sleep(0.1)
+                    rospy.sleep(0.5)
                     print(point)
                     if len(point) > 0 and point[0][1] > 1:
                         pos_N_cmd.append(int(point[0][0][0]))
