@@ -29,7 +29,7 @@ Description
     Utility classes and functions.
 Referece
 ----------
-|#|URI|
-|---|----|-----|
-|1||[Google Cloud API](https://github.com/GoogleCloudPlatform/python-docs-samples/blob/master/speech/cloud-client/transcribe_streaming_mic.py)|
-|2||[python_UR5_ikSlover][https://github.com/fjonath1/python_UR5_ikSolver] |
+[Google Cloud API](https://github.com/GoogleCloudPlatform/python-docs-samples/blob/master/speech/cloud-client/transcribe_streaming_mic.py)
+
+
+[python_UR5_ikSlover](https://github.com/fjonath1/python_UR5_ikSolver)
